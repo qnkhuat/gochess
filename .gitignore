@@ -1,7 +1,8 @@
 # Developement files
-repos/
+#repos/
 *.swp
 *.swo
+run.sh
 .DS_Store
 
 # Binaries for programs and plugins
