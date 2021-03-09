@@ -175,6 +175,7 @@ func main() {
 		mode := <-selectMode
 		switch mode {
 		case event.ModePlayOnline:
+			// MARK : this is where the game begins
 			joinedGame = true
 			setTitleVisible(false)
 

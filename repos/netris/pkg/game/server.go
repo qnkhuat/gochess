@@ -49,6 +49,7 @@ func NewServer(si []ServerInterface) *Server {
 	go s.accept()
 
 	for _, serverInterface := range si {
+		// MARK : open the TUI
 		serverInterface.Host(s.NewPlayers)
 	}
 
@@ -267,6 +268,7 @@ func (s *Server) handleGameCommands(pl *Player, g *Game) {
 }
 
 func (s *Server) Listen(address string) {
+	log.Printf("Listening to address %s", address)
 	var network string
 	network, address = NetworkAndAddress(address)
 

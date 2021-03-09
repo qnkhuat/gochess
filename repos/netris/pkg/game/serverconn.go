@@ -34,6 +34,7 @@ type ServerConn struct {
 }
 
 func NewServerConn(conn net.Conn, forwardOut chan GameCommandInterface) *ServerConn {
+	// MARK init all routines for a server
 	s := ServerConn{Conn: conn, WaitGroup: new(sync.WaitGroup)}
 
 	s.In = make(chan GameCommandInterface, CommandQueueSize)
@@ -65,6 +66,7 @@ func Connect(address string) *ServerConn {
 	network, address = NetworkAndAddress(address)
 
 	for {
+		// MARK : connect to the server 
 		conn, err = net.DialTimeout(network, address, ConnTimeout)
 		if err != nil {
 			if tries > 25 {
@@ -120,6 +122,7 @@ func (s *ServerConn) addSourceID(gc GameCommandInterface) {
 }
 
 func (s *ServerConn) handleRead() {
+	// MARK : receive data here
 	if s.Conn == nil {
 		return
 	}
@@ -239,6 +242,7 @@ func (s *ServerConn) handleRead() {
 		} else if msg.Command == CommandReceiveGarbage {
 			var gameCommand GameCommandReceiveGarbage
 			err := json.Unmarshal(msg.Data, &gameCommand)
+
 			if err != nil {
 				panic(err)
 			}
