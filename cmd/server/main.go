@@ -2,44 +2,49 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
-	"strconv"
 	"io"
 	"log"
+	"net"
 	"os"
-	"time"
-	"path"
 	"os/exec"
 	"os/signal"
+	"path"
+	"strconv"
 	"syscall"
+	"time"
 	"unsafe"
-	"context"
-	"net"
 
-	"github.com/gliderlabs/ssh"
 	"github.com/creack/pty"
+	"github.com/gliderlabs/ssh"
+	"github.com/notnil/chess"
+	"github.com/qnkhuat/chessterm/pkg"
+)
+
+const (
+	ServerIdleTimeout = 1 * time.Minute
+	SshPort           = ":2222"
+	ServerPort        = ":1998"
 )
 
 var (
-	ServerIdleTimeout = 1 * time.Minute
-	SshPort = ":2222"
-	done = make(chan bool)
+	s     *Server
+	done  = make(chan bool)
 	count = 0
 )
 
 type Server struct {
 	*ssh.Server
-	Logger chan string
-
+	game *chess.Game
 }
-
 
 func setWinsize(f *os.File, w, h int) {
 	syscall.Syscall(syscall.SYS_IOCTL, f.Fd(), uintptr(syscall.TIOCSWINSZ),
-	uintptr(unsafe.Pointer(&struct{ h, w, x, y uint16 }{uint16(h), uint16(w), 0, 0})))
+		uintptr(unsafe.Pointer(&struct{ h, w, x, y uint16 }{uint16(h), uint16(w), 0, 0})))
 }
 
-func sshHandle(s ssh.Session){
+func sshHandle(s ssh.Session) {
 	ptyReq, winCh, isPty := s.Pty()
 	if !isPty {
 		io.WriteString(s, "non-interactive terminals are not supported\n")
@@ -80,15 +85,15 @@ func sshHandle(s ssh.Session){
 
 }
 
-func (s *Server) Log(msg string){
-	s.Logger <- msg
-}
+//func (s *Server) Log(msg string) {
+//	s.Logger <- msg
+//}
 
-func NewServer() *Server{
-	s:= &ssh.Server{
-		Addr: SshPort,
+func NewServer() *Server {
+	s := &ssh.Server{
+		Addr:        SshPort,
 		IdleTimeout: ServerIdleTimeout,
-		Handler: sshHandle,
+		Handler:     sshHandle,
 	}
 
 	// TODO: understand what does it do?
@@ -103,22 +108,26 @@ func NewServer() *Server{
 			panic(err)
 		}
 	}()
-	server := &Server{s, nil}
+	game := chess.NewGame(chess.UseNotation(chess.UCINotation{}))
+	server := &Server{
+		Server: s,
+		game:   game,
+	}
 
 	return server
 }
 
-func sendMsg(msg string, conn net.Conn){
+func sendMsg(msg string, conn net.Conn) {
 	msg = msg + "\n"
 	if _, err := io.WriteString(conn, msg); err != nil {
 		log.Fatal(err)
 	}
 }
 
-
-func handleConn(conn net.Conn){
+func handleConn(conn net.Conn) {
 	// Handle requests
-	sendMsg(strconv.Itoa(count), conn)
+	//sendMsg(strconv.Itoa(count), conn)
+	sendMsg(s.game.String(), conn)
 	defer conn.Close()
 	input := bufio.NewScanner(conn)
 	for input.Scan() {
@@ -130,29 +139,28 @@ func handleConn(conn net.Conn){
 			count--
 			go sendMsg(strconv.Itoa(count), conn)
 		default:
-			fmt.Printf("Invalid command\n")
+			log.Printf("Invalid command\n")
 		}
-		fmt.Printf("Count now: %d\n", count)
+		log.Printf("Count now: %d\n", count)
 	}
 }
 
-
 func main() {
-	s := NewServer()
+	pkg.InitLog("/Users/earther/fun/7_chessterm/cmd/server/log")
+	s = NewServer()
 
 	// Setup Logger
-	logger := make(chan string, 10)
-	go func() {
-		for msg := range logger {
-			log.Println(time.Now().Format("3:04:05") + " " + msg)
-		}
-	}()
+	//logger := make(chan string, 10)
+	//go func() {
+	//	for msg := range logger {
+	//		log.Println(time.Now().Format("3:04:05") + " " + msg)
+	//	}
+	//}()
 
-	s.Logger = logger
-	s.Log("Server started")
+	log.Println("Server started")
 
 	// Create server to listen for data
-	listener, err := net.Listen("tcp", ":1998")
+	listener, err := net.Listen("tcp", ServerPort)
 	defer listener.Close()
 	if err != nil {
 		log.Panic(err)
@@ -163,7 +171,7 @@ func main() {
 			log.Println("Failed to connect %v", err)
 			continue
 		}
-		log.Println("New connection on port :1998")
+		log.Printf("New connection on port %s", ServerPort)
 		go handleConn(conn)
 	}
 
@@ -180,6 +188,5 @@ func main() {
 	}()
 
 	<-done
-	
-}
 
+}
