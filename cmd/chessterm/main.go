@@ -1,14 +1,23 @@
 package main
 
 import (
-	"os"
-
-	"github.com/gdamore/tcell/v2"
-	"github.com/notnil/chess"
-	"chessterm/pkg/gui"
+	pkg "github.com/qnkhuat/chessterm/pkg"
 )
 
+const (
+	numrows             = 8
+	numcols             = 8
+	numOfSquaresInBoard = 8 * 8
+)
 
 func main() {
-	var gs uchess.GameState
+	pkg.Init_log("log")
+
+	cl := pkg.NewClient()
+	cl.RenderTable()
+
+	if err := cl.App().SetRoot(cl.Table(), true).EnableMouse(true).Run(); err != nil {
+		panic(err)
+	}
+
 }
