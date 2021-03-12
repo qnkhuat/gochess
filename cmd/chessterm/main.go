@@ -2,7 +2,9 @@ package main
 
 import (
 	"github.com/qnkhuat/chessterm/pkg"
-	"log"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 const (
@@ -12,16 +14,31 @@ const (
 	ServerPort          = ":1998"
 )
 
-func main() {
-	pkg.InitLog("/Users/earther/fun/7_chessterm/cmd/chessterm/log")
+var (
+	done = make(chan bool)
+)
 
-	cl := pkg.NewClient()
+func main() {
+	pkg.InitLog("/Users/earther/fun/7_chessterm/log", "CLIENT: ")
+
+	cl := pkg.NewClient(ServerPort)
 	cl.RenderTable()
-	log.Println("Connecting")
-	cl.Connect(ServerPort)
-	log.Println("Connected")
 
 	if err := cl.App.SetRoot(cl.Table, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
+
+	// Keep the server run
+	sigc := make(chan os.Signal, 1)
+	// Wait for teminate signal
+	signal.Notify(sigc,
+		syscall.SIGINT,
+		syscall.SIGTERM)
+	go func() {
+		<-sigc
+
+		done <- true
+	}()
+
+	<-done
 }
