@@ -10,7 +10,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"strconv"
 	"strings"
 )
 
@@ -24,6 +23,7 @@ type Client struct {
 	selecting     bool
 	lastSelection chess.Square
 	highlights    map[chess.Square]bool
+	Color         PlayerColor
 }
 
 const (
@@ -33,7 +33,7 @@ const (
 	ConnQueueSize       = 10
 )
 
-func NewClient(serverPort string) *Client {
+func NewClient() *Client {
 	app := tview.NewApplication()
 	table := tview.NewTable()
 	In := make(chan MessageInterface, ConnQueueSize)
@@ -47,9 +47,6 @@ func NewClient(serverPort string) *Client {
 	}
 	cl.highlights = make(map[chess.Square]bool)
 	cl.init_table()
-	cl.Connect(serverPort)
-	go cl.HandleRead()
-	go cl.HandleWrite()
 	return cl
 }
 
@@ -67,7 +64,8 @@ func (cl *Client) init_table() {
 		}
 	}).SetSelectedFunc(func(row, col int) {
 		// TODO handle when promoting
-		sq := posToSquare(row, col)
+		//sq := posToSquare(row, col)
+		sq := cl.posToSquare(row, col)
 		if cl.selecting {
 			if sq == cl.lastSelection { // chose the last move to deactivate
 				cl.selecting = false
@@ -102,46 +100,64 @@ func (cl *Client) init_table() {
 			cl.selecting = true
 			cl.lastSelection = sq
 		}
-		cl.RenderTable()
+		cl.RenderTable() // Not need to
 	})
 }
 
 func (cl *Client) RenderTable() {
 	board := cl.Game.Position().Board()
-	var r, f int
-	var color tcell.Color
+	var (
+		r, f  int
+		color tcell.Color
+	)
 	// Step through the ranks starting with the top row
 	for r = 0; r <= numrows; r++ {
-		if r != numrows { // Draw numbers square
-			cell := tview.NewTableCell(strconv.Itoa(numrows - r)).
-				SetAlign(tview.AlignCenter).
-				SetSelectable(false)
-			cl.Table.SetCell(r, 0, cell)
-		}
+		// Each column
+		for f = 0; f <= numcols; f++ {
+			if f == 0 && r != numrows { // draw rank square
+				var rank chess.Rank
+				if cl.Color == White {
+					rank = chess.Rank(numrows - r - 1)
+				} else {
+					rank = chess.Rank(r)
+				}
+				cell := tview.NewTableCell(rank.String()).
+					SetAlign(tview.AlignCenter).
+					SetSelectable(false)
+				cl.Table.SetCell(r, f, cell)
+				continue
+			}
 
-		// Walk the board
-		for f = 1; f <= numcols; f++ {
-			file := chess.File(f - 1)
-			if r == numrows { // Draw files square
+			if r == numrows && f > 0 { // Draw files square
+				file := chess.File(f - 1)
 				cell := tview.NewTableCell(fmt.Sprintf(" %s", file.String())).
 					SetAlign(tview.AlignCenter).
 					SetSelectable(false)
 				cl.Table.SetCell(r, f, cell)
 				continue
 			}
+
+			if r == numrows && f == 0 {
+				continue
+			}
+
 			// Draw the pieces
-			sq := posToSquare(r, f)
+
+			sq := cl.posToSquare(r, f)
 			p := board.Piece(sq)
 			ps := fmt.Sprintf(" %s", p.String())
 			color = squareToColor(sq, cl.highlights)
 			cell := tview.NewTableCell(ps).
 				SetAlign(tview.AlignCenter).
 				SetBackgroundColor(color)
-
 			cl.Table.SetCell(r, f, cell)
 		}
 	}
 	cl.Table.GetCell(numrows, 0).SetSelectable(false) // The bottom left tile is not used
+	go func() {
+		cl.App.Draw()
+	}()
+
 }
 
 func (cl *Client) Connect(port string) {
@@ -185,8 +201,27 @@ func (cl *Client) HandleRead() {
 			}
 			cl.Game = GameFromFEN(message.Fen)
 			cl.RenderTable()
+
+		case TypeMessageConnect:
+			var message MessageConnect
+			err := json.Unmarshal(messageTransport.Data, &message)
+			if err != nil {
+				log.Panic(err)
+			}
+			cl.Game = GameFromFEN(message.Fen)
+			cl.Color = message.Color
+			cl.RenderTable()
+
 		default:
 			log.Printf("Received Unknown message")
 		}
 	}
+}
+func (cl *Client) posToSquare(row, col int) chess.Square {
+	// A1 is square 0
+	if cl.Color == White { // decending order if is white
+		row = numrows - row - 1
+	}
+	col = col - 1 // 1 column for the rank
+	return chess.Square(row*8 + col)
 }

@@ -12,6 +12,7 @@ const (
 	TypeMessageGame MessageType = iota
 	TypeMessageMove
 	TypeMessageTransport
+	TypeMessageConnect
 )
 
 func (m MessageType) String() string {
@@ -22,6 +23,8 @@ func (m MessageType) String() string {
 		return "TypeMessageMove"
 	case TypeMessageTransport:
 		return "TypeMessageTransport"
+	case TypeMessageConnect:
+		return "TypeMessageConnect"
 	default:
 		return "Unknown MessageType"
 	}
@@ -82,6 +85,25 @@ func (m MessageGame) Type() MessageType {
 }
 
 func (m MessageGame) Encode() json.RawMessage {
+	data, err := json.Marshal(m)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return data
+}
+
+type MessageConnect struct {
+	Color  PlayerColor
+	Fen    string
+	IsTurn bool
+}
+
+func (m MessageConnect) Type() MessageType {
+	return TypeMessageConnect
+}
+
+func (m MessageConnect) Encode() json.RawMessage {
 	data, err := json.Marshal(m)
 	if err != nil {
 		log.Panic(err)

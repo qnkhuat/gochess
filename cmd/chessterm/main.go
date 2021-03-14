@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/qnkhuat/chessterm/pkg"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -21,9 +22,11 @@ var (
 func main() {
 	pkg.InitLog("/Users/earther/fun/7_chessterm/log", "CLIENT: ")
 
-	cl := pkg.NewClient(ServerPort)
-	cl.RenderTable()
-
+	log.Println("New Client")
+	cl := pkg.NewClient()
+	cl.Connect(ServerPort)
+	go cl.HandleRead()
+	go cl.HandleWrite()
 	if err := cl.App.SetRoot(cl.Table, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}

@@ -168,7 +168,6 @@ func (s *Server) HandleRead() {
 	for message := range s.Out {
 		switch message.Type() {
 		case TypeMessageGame:
-			log.Println("pay attention")
 			for _, p := range s.Players { // Broadcast the game to all users
 				message.IsTurn = p.Color == s.Turn
 				p.Out <- message

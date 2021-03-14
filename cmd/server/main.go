@@ -37,9 +37,10 @@ func main() {
 			continue
 		}
 		go p.HandleRead(s.In)
-		p.Out <- pkg.MessageGame{
+		p.Out <- pkg.MessageConnect{
 			Fen:    s.GameFEN(),
 			IsTurn: s.Turn == p.Color,
+			Color:  p.Color,
 		}
 	}
 

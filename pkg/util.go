@@ -11,8 +11,9 @@ func getSquare(f chess.File, r chess.Rank) chess.Square {
 	return chess.Square((int(r) * 8) + int(f))
 }
 
-func posToSquare(row, col int) chess.Square {
-	return chess.Square((int(numrows-row-1) * 8) + int(col-1))
+func posToSquare(row, col int, flip bool) chess.Square {
+	//row = 7 - row
+	return chess.Square((numrows-row-1)*8 + col - 1)
 }
 
 func squareToColor(sq chess.Square, highlights map[chess.Square]bool) tcell.Color {
