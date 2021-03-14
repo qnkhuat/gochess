@@ -32,50 +32,6 @@ func (m MessageType) String() string {
 	}
 }
 
-// Message types
-
-//
-type MessageTransport struct {
-	MsgType  MessageType
-	Data     json.RawMessage
-	PlayerId int
-}
-
-func (m MessageTransport) Type() MessageType {
-	return TypeMessageTransport
-}
-
-//
-type MessageMove struct {
-	Move string
-	Msg  string
-}
-
-func (m MessageMove) Type() MessageType {
-	return TypeMessageMove
-}
-
-//
-type MessageGame struct {
-	Fen    string
-	IsTurn bool
-}
-
-func (m MessageGame) Type() MessageType {
-	return TypeMessageGame
-}
-
-//
-type MessageConnect struct {
-	Color  PlayerColor
-	Fen    string
-	IsTurn bool
-}
-
-func (m MessageConnect) Type() MessageType {
-	return TypeMessageConnect
-}
-
 func Encode(o interface{}) json.RawMessage {
 	data, err := json.Marshal(o)
 	if err != nil {
@@ -86,8 +42,63 @@ func Encode(o interface{}) json.RawMessage {
 
 func Decode(data []byte, o interface{}) {
 	err := json.Unmarshal(data, o)
-	log.Printf("Decode %v", o)
 	if err != nil {
 		log.Panic(err)
 	}
+}
+
+// Message types
+
+// A generic sturct used to transport between server-client
+type MessageTransport struct {
+	MsgType  MessageType
+	Data     json.RawMessage
+	PlayerId int
+}
+
+func (m MessageTransport) Type() MessageType {
+	return TypeMessageTransport
+}
+
+// Move from player
+type MessageMove struct {
+	Move string
+	Msg  string
+}
+
+func (m MessageMove) Type() MessageType {
+	return TypeMessageMove
+}
+
+// Game Update
+type MessageGame struct {
+	Fen    string
+	IsTurn bool
+}
+
+func (m MessageGame) Type() MessageType {
+	return TypeMessageGame
+}
+
+// Initialize connection
+type MessageConnect struct {
+	Color  PlayerColor
+	Fen    string
+	IsTurn bool
+}
+
+func (m MessageConnect) Type() MessageType {
+	return TypeMessageConnect
+}
+
+//
+type GameCommand int
+
+const (
+	GameCommandDraw GameCommand = iota
+	GameCommandResign
+)
+
+type MessageGameCommand struct {
+	Command GameCommand
 }

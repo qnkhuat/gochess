@@ -15,7 +15,8 @@ import (
 type Client struct {
 	Game          *chess.Game
 	App           *tview.Application
-	Table         *tview.Table
+	Board         *tview.Table
+	Layout        *tview.Grid
 	Conn          net.Conn
 	In            chan MessageInterface
 	Out           chan MessageInterface
@@ -34,32 +35,71 @@ const (
 
 func NewClient() *Client {
 	app := tview.NewApplication()
-	table := tview.NewTable()
+
+	// Game options
+	drawBtn := tview.NewButton("Draw").SetSelectedFunc(func() {
+		app.Stop()
+		// Send draw offer
+	})
+
+	resignBtn := tview.NewButton("Resign").SetSelectedFunc(func() {
+		app.Stop()
+		// Send resign
+	})
+
+	messageText := tview.NewTextView().
+		SetText("This is where message is gonna be")
+
+	gameOptions := tview.NewGrid().
+		SetColumns(10, 10).
+		SetRows(3, 10, -1).
+		AddItem(drawBtn, 0, 0, 1, 1, 0, 0, false).
+		AddItem(resignBtn, 0, 1, 1, 1, 0, 0, false).
+		AddItem(messageText, 1, 0, 2, 2, 0, 0, false)
+
+	board := tview.NewTable()
+
+	//messageTextView := tview.NewTextView()
+
+	layout := tview.NewGrid().
+		SetRows(-1, 40, -1).
+		SetColumns(-1, 30, 20, -1).
+		AddItem(tview.NewTextView(), 0, 0, 3, 1, 0, 0, false).
+		AddItem(tview.NewTextView(), 1, 0, 1, 1, 0, 0, false).
+		AddItem(tview.NewTextView(), 2, 0, 1, 1, 0, 0, false).
+		AddItem(tview.NewTextView(), 0, 3, 1, 1, 0, 0, false).
+		AddItem(tview.NewTextView(), 1, 3, 1, 1, 0, 0, false).
+		AddItem(tview.NewTextView(), 2, 3, 1, 1, 0, 0, false).
+		AddItem(board, 1, 1, 1, 1, 0, 0, true).
+		AddItem(gameOptions, 1, 2, 1, 1, 0, 0, false)
+
 	In := make(chan MessageInterface, ConnQueueSize)
 	Out := make(chan MessageInterface, ConnQueueSize)
 	cl := &Client{
-		App:   app,
-		Game:  chess.NewGame(chess.UseNotation(chess.UCINotation{})),
-		Table: table,
-		In:    In,
-		Out:   Out,
+		App:    app,
+		Game:   chess.NewGame(chess.UseNotation(chess.UCINotation{})),
+		Board:  board,
+		In:     In,
+		Out:    Out,
+		Layout: layout,
 	}
 	cl.highlights = make(map[chess.Square]bool)
 	cl.init_table()
+
 	return cl
 }
 
 func (cl *Client) init_table() {
 	cl.RenderTable()
-	cl.Table.SetSelectable(true, true)
-	cl.Table.Select(0, 0).SetDoneFunc(func(key tcell.Key) {
+	cl.Board.SetSelectable(true, true)
+	cl.Board.Select(0, 0).SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEscape {
 			cl.App.Stop()
 			cl.Conn.Close()
 			os.Exit(0)
 		}
 		if key == tcell.KeyEnter {
-			cl.Table.SetSelectable(true, true)
+			cl.Board.SetSelectable(true, true)
 		}
 	}).SetSelectedFunc(func(row, col int) {
 		// TODO handle when promoting
@@ -69,7 +109,7 @@ func (cl *Client) init_table() {
 			if sq == cl.lastSelection { // chose the last move to deactivate
 				cl.selecting = false
 				cl.lastSelection = 0
-				cl.Table.GetCell(row, col).SetBackgroundColor(squareToColor(sq, cl.highlights))
+				cl.Board.GetCell(row, col).SetBackgroundColor(squareToColor(sq, cl.highlights))
 				delete(cl.highlights, sq)
 			} else { // Chosing destination
 				move := fmt.Sprintf("%s%s", cl.lastSelection.String(), sq.String())
@@ -123,7 +163,7 @@ func (cl *Client) RenderTable() {
 				cell := tview.NewTableCell(rank.String()).
 					SetAlign(tview.AlignCenter).
 					SetSelectable(false)
-				cl.Table.SetCell(r, f, cell)
+				cl.Board.SetCell(r, f, cell)
 				continue
 			}
 
@@ -132,7 +172,7 @@ func (cl *Client) RenderTable() {
 				cell := tview.NewTableCell(fmt.Sprintf(" %s", file.String())).
 					SetAlign(tview.AlignCenter).
 					SetSelectable(false)
-				cl.Table.SetCell(r, f, cell)
+				cl.Board.SetCell(r, f, cell)
 				continue
 			}
 
@@ -149,10 +189,10 @@ func (cl *Client) RenderTable() {
 			cell := tview.NewTableCell(ps).
 				SetAlign(tview.AlignCenter).
 				SetBackgroundColor(color)
-			cl.Table.SetCell(r, f, cell)
+			cl.Board.SetCell(r, f, cell)
 		}
 	}
-	cl.Table.GetCell(numrows, 0).SetSelectable(false) // The bottom left tile is not used
+	cl.Board.GetCell(numrows, 0).SetSelectable(false) // The bottom left tile is not used
 	go func() {
 		cl.App.Draw()
 	}()
