@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"bufio"
-	"encoding/json"
 	"log"
 	"net"
 )
@@ -46,20 +45,15 @@ func NewPlayer(conn net.Conn) *Player {
 		In:   In,
 		Out:  Out,
 	}
-
-	go p.HandleWrite()
 	return p
 }
 
-func (p *Player) HandleRead(In chan MessageTransport) {
+func (p *Player) HandleRead(In chan MessageInterface) {
 	// Receive message, add player info, then forward to server
 	scanner := bufio.NewScanner(p.Conn)
 	var messageTransport MessageTransport
 	for scanner.Scan() {
-		err := json.Unmarshal(scanner.Bytes(), &messageTransport)
-		if err != nil {
-			log.Panic(err)
-		}
+		Decode(scanner.Bytes(), &messageTransport)
 		messageTransport.PlayerId = p.Id
 		In <- messageTransport // Forward the message to server
 	}
@@ -67,15 +61,15 @@ func (p *Player) HandleRead(In chan MessageTransport) {
 
 func (p *Player) HandleWrite() {
 	for message := range p.Out {
-		messageData := message.Encode()
+		messageData := Encode(message)
 		messageTransport := &MessageTransport{MsgType: message.Type(), Data: messageData}
-		b := messageTransport.Encode()
+		b := Encode(messageTransport)
 		if b[len(b)-1] != '\n' { // EOF
 			b = append(b, '\n')
 		}
 		if _, err := p.Conn.Write(b); err != nil {
 			log.Fatal(err)
 		}
-		log.Printf("Send a msg: %v with type :%s", b, message.Type())
+		log.Printf("Send a msg type :%s", message.Type())
 	}
 }

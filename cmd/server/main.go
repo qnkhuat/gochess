@@ -36,12 +36,6 @@ func main() {
 			log.Println("Failed to connect %v", err)
 			continue
 		}
-		go p.HandleRead(s.In)
-		p.Out <- pkg.MessageConnect{
-			Fen:    s.GameFEN(),
-			IsTurn: s.Turn == p.Color,
-			Color:  p.Color,
-		}
 	}
 
 	// Keep the server run

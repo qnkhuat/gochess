@@ -30,8 +30,8 @@ type Server struct {
 	Players []*Player
 	Turn    PlayerColor
 	// TODO : find out a better way to generic this
-	In  chan MessageTransport
-	Out chan MessageGame
+	In  chan MessageInterface
+	Out chan MessageInterface
 }
 
 func setWinsize(f *os.File, w, h int) {
@@ -99,8 +99,8 @@ func NewServer() *Server {
 		}
 	}()
 
-	In := make(chan MessageTransport, MessageQueueSize)
-	Out := make(chan MessageGame, MessageQueueSize)
+	In := make(chan MessageInterface, MessageQueueSize)
+	Out := make(chan MessageInterface, MessageQueueSize)
 	game := chess.NewGame(chess.UseNotation(chess.UCINotation{}))
 	server := &Server{
 		Server: s,
@@ -127,16 +127,25 @@ func (s *Server) AddPlayer(p *Player) {
 	}
 	p.Color = color
 	p.Id = len(s.Players)
-	log.Printf("Added a Player: %s", p.Color)
 	s.Players = append(s.Players, p)
+
+	go p.HandleWrite()
+	go p.HandleRead(s.In)
+	p.Out <- MessageConnect{
+		Fen:    s.GameFEN(),
+		IsTurn: s.Turn == p.Color,
+		Color:  p.Color,
+	}
+	log.Printf("Added a Player: %s", p.Color)
 }
 
 func (s *Server) GameFEN() string {
 	return s.Game.Position().String()
 }
 
-func (s *Server) HandleWrite() {
-	for messageTransport := range s.In {
+func (s *Server) HandleRead() {
+	for inMessage := range s.In {
+		messageTransport := inMessage.(MessageTransport)
 		switch messageTransport.MsgType {
 		case TypeMessageMove:
 			var message MessageMove
@@ -164,13 +173,14 @@ func (s *Server) HandleWrite() {
 	}
 }
 
-func (s *Server) HandleRead() {
+func (s *Server) HandleWrite() {
 	for message := range s.Out {
-		switch message.Type() {
-		case TypeMessageGame:
+		//switch message.Type() {
+		switch m := message.(type) {
+		case MessageGame:
 			for _, p := range s.Players { // Broadcast the game to all users
-				message.IsTurn = p.Color == s.Turn
-				p.Out <- message
+				m.IsTurn = p.Color == s.Turn
+				p.Out <- m
 			}
 		default:
 			log.Println("Received Unknown message")

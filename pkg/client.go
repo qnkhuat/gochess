@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"github.com/gdamore/tcell/v2"
 	"github.com/notnil/chess"
@@ -171,16 +170,16 @@ func (cl *Client) Connect(port string) {
 
 func (cl *Client) HandleWrite() {
 	for command := range cl.Out {
-		commandData := command.Encode()
+		commandData := Encode(command)
 		commandTransport := MessageTransport{MsgType: command.Type(), Data: commandData}
-		b := commandTransport.Encode()
+		b := Encode(commandTransport)
 		if b[len(b)-1] != '\n' { // EOF
 			b = append(b, '\n')
 		}
 		if _, err := cl.Conn.Write(b); err != nil {
 			log.Fatal(err)
 		}
-		log.Printf("Send a msg: %v with type :%s", b, command.Type())
+		log.Printf("Send a msg type :%s", command.Type())
 	}
 }
 
@@ -188,26 +187,17 @@ func (cl *Client) HandleRead() {
 	scanner := bufio.NewScanner(cl.Conn)
 	var messageTransport MessageTransport
 	for scanner.Scan() {
-		err := json.Unmarshal(scanner.Bytes(), &messageTransport)
-		if err != nil {
-			log.Panic(err)
-		}
+		Decode(scanner.Bytes(), &messageTransport)
 		switch messageTransport.MsgType {
 		case TypeMessageGame:
 			var message MessageGame
-			err := json.Unmarshal(messageTransport.Data, &message)
-			if err != nil {
-				log.Panic(err)
-			}
+			Decode(messageTransport.Data, &message)
 			cl.Game = GameFromFEN(message.Fen)
 			cl.RenderTable()
 
 		case TypeMessageConnect:
 			var message MessageConnect
-			err := json.Unmarshal(messageTransport.Data, &message)
-			if err != nil {
-				log.Panic(err)
-			}
+			Decode(messageTransport.Data, &message)
 			cl.Game = GameFromFEN(message.Fen)
 			cl.Color = message.Color
 			cl.RenderTable()
@@ -219,7 +209,7 @@ func (cl *Client) HandleRead() {
 }
 func (cl *Client) posToSquare(row, col int) chess.Square {
 	// A1 is square 0
-	if cl.Color == White { // decending order if is white
+	if cl.Color != Black { // decending order if is white
 		row = numrows - row - 1
 	}
 	col = col - 1 // 1 column for the rank

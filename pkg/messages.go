@@ -1,4 +1,3 @@
-// TODO : Duplicated code, Use Interface extensively
 package pkg
 
 import (
@@ -6,6 +5,9 @@ import (
 	"log"
 )
 
+type MessageInterface interface {
+	Type() MessageType
+}
 type MessageType int
 
 const (
@@ -30,11 +32,6 @@ func (m MessageType) String() string {
 	}
 }
 
-type MessageInterface interface {
-	Type() MessageType
-	Encode() json.RawMessage
-}
-
 // Message types
 
 //
@@ -48,14 +45,6 @@ func (m MessageTransport) Type() MessageType {
 	return TypeMessageTransport
 }
 
-func (m MessageTransport) Encode() json.RawMessage {
-	data, err := json.Marshal(m)
-	if err != nil {
-		log.Panic(err)
-	}
-	return data
-}
-
 //
 type MessageMove struct {
 	Move string
@@ -64,14 +53,6 @@ type MessageMove struct {
 
 func (m MessageMove) Type() MessageType {
 	return TypeMessageMove
-}
-
-func (m MessageMove) Encode() json.RawMessage {
-	data, err := json.Marshal(m)
-	if err != nil {
-		log.Panic(err)
-	}
-	return data
 }
 
 //
@@ -84,15 +65,7 @@ func (m MessageGame) Type() MessageType {
 	return TypeMessageGame
 }
 
-func (m MessageGame) Encode() json.RawMessage {
-	data, err := json.Marshal(m)
-	if err != nil {
-		log.Panic(err)
-	}
-
-	return data
-}
-
+//
 type MessageConnect struct {
 	Color  PlayerColor
 	Fen    string
@@ -103,11 +76,18 @@ func (m MessageConnect) Type() MessageType {
 	return TypeMessageConnect
 }
 
-func (m MessageConnect) Encode() json.RawMessage {
-	data, err := json.Marshal(m)
+func Encode(o interface{}) json.RawMessage {
+	data, err := json.Marshal(o)
 	if err != nil {
 		log.Panic(err)
 	}
-
 	return data
+}
+
+func Decode(data []byte, o interface{}) {
+	err := json.Unmarshal(data, o)
+	log.Printf("Decode %v", o)
+	if err != nil {
+		log.Panic(err)
+	}
 }
