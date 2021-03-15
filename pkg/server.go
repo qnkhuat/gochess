@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/creack/pty"
 	"github.com/gliderlabs/ssh"
@@ -12,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"syscall"
 	"time"
 	"unsafe"
@@ -149,10 +149,7 @@ func (s *Server) HandleRead() {
 		switch messageTransport.MsgType {
 		case TypeMessageMove:
 			var message MessageMove
-			err := json.Unmarshal(messageTransport.Data, &message)
-			if err != nil {
-				log.Panic(err)
-			}
+			Decode(messageTransport.Data, &message)
 			// Validate if the sender is the one who allowed to move
 			if s.Players[messageTransport.PlayerId].Color == s.Turn {
 				s.Game.MoveStr(message.Move)
@@ -166,6 +163,18 @@ func (s *Server) HandleRead() {
 			} else {
 				log.Println("Not your turn bro")
 			}
+		case TypeMessageGameChat:
+			var message MessageGameChat
+			Decode(messageTransport.Data, &message)
+
+			var senderName string
+			if s.Players[messageTransport.PlayerId].Name != "" {
+				senderName = s.Players[messageTransport.PlayerId].Name
+			} else {
+				senderName = fmt.Sprintf("ID[%v]", strconv.Itoa(messageTransport.PlayerId))
+			}
+			message.Name = senderName
+			s.Out <- message
 
 		default:
 			log.Printf("Received Unknown message")
@@ -182,8 +191,14 @@ func (s *Server) HandleWrite() {
 				m.IsTurn = p.Color == s.Turn
 				p.Out <- m
 			}
+		case MessageGameChat:
+			for _, p := range s.Players { // Broadcast the game to all users
+				p.Out <- m
+			}
+
 		default:
 			log.Println("Received Unknown message")
 		}
+		log.Printf("Send a message type: %T", message)
 	}
 }

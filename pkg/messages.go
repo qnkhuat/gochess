@@ -3,6 +3,7 @@ package pkg
 import (
 	"encoding/json"
 	"log"
+	"time"
 )
 
 type MessageInterface interface {
@@ -15,6 +16,7 @@ const (
 	TypeMessageMove
 	TypeMessageTransport
 	TypeMessageConnect
+	TypeMessageGameChat
 )
 
 func (m MessageType) String() string {
@@ -27,6 +29,8 @@ func (m MessageType) String() string {
 		return "TypeMessageTransport"
 	case TypeMessageConnect:
 		return "TypeMessageConnect"
+	case TypeMessageGameChat:
+		return "TypeMessageGameChat"
 	default:
 		return "Unknown MessageType"
 	}
@@ -101,4 +105,15 @@ const (
 
 type MessageGameCommand struct {
 	Command GameCommand
+}
+
+//
+type MessageGameChat struct {
+	Message string
+	Name    string
+	Time    time.Time
+}
+
+func (m MessageGameChat) Type() MessageType {
+	return TypeMessageGameChat
 }

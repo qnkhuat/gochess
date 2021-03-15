@@ -8,22 +8,24 @@ import (
 	"github.com/rivo/tview"
 	"log"
 	"net"
-	"os"
 	"strings"
+	"time"
 )
 
 type Client struct {
-	Game          *chess.Game
-	App           *tview.Application
-	Board         *tview.Table
-	Layout        *tview.Grid
-	Conn          net.Conn
-	In            chan MessageInterface
-	Out           chan MessageInterface
-	selecting     bool
-	lastSelection chess.Square
-	highlights    map[chess.Square]bool
-	Color         PlayerColor
+	Game           *chess.Game
+	App            *tview.Application
+	Board          *tview.Table
+	Layout         *tview.Grid
+	Conn           net.Conn
+	In             chan MessageInterface
+	Out            chan MessageInterface
+	selecting      bool
+	lastSelection  chess.Square
+	highlights     map[chess.Square]bool
+	Color          PlayerColor
+	ChatTextView   *tview.TextView
+	StatusTextView *tview.TextView
 }
 
 const (
@@ -36,57 +38,80 @@ const (
 func NewClient() *Client {
 	app := tview.NewApplication()
 
+	In := make(chan MessageInterface, ConnQueueSize)
+	Out := make(chan MessageInterface, ConnQueueSize)
+	highlights := make(map[chess.Square]bool)
+	cl := &Client{
+		App:        app,
+		Game:       chess.NewGame(chess.UseNotation(chess.UCINotation{})),
+		In:         In,
+		Out:        Out,
+		highlights: highlights,
+	}
+	cl.InitGUI()
+
+	return cl
+}
+
+func (cl *Client) Disconnect() {
+	cl.App.Stop()
+	cl.Conn.Close()
+}
+
+func (cl *Client) InitGUI() {
 	// Game options
 	drawBtn := tview.NewButton("Draw").SetSelectedFunc(func() {
-		app.Stop()
+		cl.Disconnect()
 		// Send draw offer
 	})
 
 	resignBtn := tview.NewButton("Resign").SetSelectedFunc(func() {
-		app.Stop()
+		cl.Disconnect()
 		// Send resign
 	})
 
-	messageText := tview.NewTextView().
+	statusText := tview.NewTextView().
 		SetText("This is where message is gonna be")
 
 	gameOptions := tview.NewGrid().
-		SetColumns(10, 10).
-		SetRows(3, 10, -1).
-		AddItem(drawBtn, 0, 0, 1, 1, 0, 0, false).
-		AddItem(resignBtn, 0, 1, 1, 1, 0, 0, false).
-		AddItem(messageText, 1, 0, 2, 2, 0, 0, false)
+		SetColumns(3, 10, 1, 10, 3).
+		SetRows(3, 1, 3, -1).
+		AddItem(statusText, 0, 0, 1, 5, 0, 0, false).
+		AddItem(drawBtn, 2, 1, 1, 1, 0, 0, false).
+		AddItem(resignBtn, 2, 3, 1, 1, 0, 0, false)
+
+	messageInput := tview.NewInputField()
+	messageInput.SetLabel("[red]>[red] ").
+		SetDoneFunc(func(key tcell.Key) {
+			cl.Out <- MessageGameChat{Message: messageInput.GetText(), Time: time.Now()}
+			messageInput.SetText("")
+		})
+
+	chatTextView := tview.NewTextView().
+		SetText("a Message from user\nNgoc dep trai vl").
+		SetScrollable(true)
+
+	chatGrid := tview.NewGrid().
+		SetColumns(60).
+		SetRows(9, 1, 1).
+		AddItem(chatTextView, 0, 0, 1, 1, 0, 0, false).
+		AddItem(messageInput, 2, 0, 1, 1, 0, 0, false)
 
 	board := tview.NewTable()
 
-	//messageTextView := tview.NewTextView()
-
 	layout := tview.NewGrid().
-		SetRows(-1, 40, -1).
-		SetColumns(-1, 30, 20, -1).
-		AddItem(tview.NewTextView(), 0, 0, 3, 1, 0, 0, false).
-		AddItem(tview.NewTextView(), 1, 0, 1, 1, 0, 0, false).
-		AddItem(tview.NewTextView(), 2, 0, 1, 1, 0, 0, false).
-		AddItem(tview.NewTextView(), 0, 3, 1, 1, 0, 0, false).
-		AddItem(tview.NewTextView(), 1, 3, 1, 1, 0, 0, false).
-		AddItem(tview.NewTextView(), 2, 3, 1, 1, 0, 0, false).
+		SetRows(-1, 10, 11, -1).
+		SetColumns(-1, 30, 30, -1).
 		AddItem(board, 1, 1, 1, 1, 0, 0, true).
-		AddItem(gameOptions, 1, 2, 1, 1, 0, 0, false)
+		AddItem(gameOptions, 1, 2, 1, 1, 0, 0, false).
+		AddItem(chatGrid, 2, 1, 1, 2, 0, 0, false)
 
-	In := make(chan MessageInterface, ConnQueueSize)
-	Out := make(chan MessageInterface, ConnQueueSize)
-	cl := &Client{
-		App:    app,
-		Game:   chess.NewGame(chess.UseNotation(chess.UCINotation{})),
-		Board:  board,
-		In:     In,
-		Out:    Out,
-		Layout: layout,
-	}
-	cl.highlights = make(map[chess.Square]bool)
+	cl.StatusTextView = statusText
+	cl.ChatTextView = chatTextView
+	cl.Layout = layout
+	cl.Board = board
+
 	cl.init_table()
-
-	return cl
 }
 
 func (cl *Client) init_table() {
@@ -94,9 +119,7 @@ func (cl *Client) init_table() {
 	cl.Board.SetSelectable(true, true)
 	cl.Board.Select(0, 0).SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEscape {
-			cl.App.Stop()
-			cl.Conn.Close()
-			os.Exit(0)
+			cl.Disconnect()
 		}
 		if key == tcell.KeyEnter {
 			cl.Board.SetSelectable(true, true)
@@ -139,7 +162,7 @@ func (cl *Client) init_table() {
 			cl.selecting = true
 			cl.lastSelection = sq
 		}
-		cl.RenderTable() // Not need to
+		cl.RenderTable() // Not need to if the we have a seperated routine to highlights
 	})
 }
 
@@ -193,9 +216,7 @@ func (cl *Client) RenderTable() {
 		}
 	}
 	cl.Board.GetCell(numrows, 0).SetSelectable(false) // The bottom left tile is not used
-	go func() {
-		cl.App.Draw()
-	}()
+	go cl.App.Draw()
 
 }
 
@@ -228,11 +249,17 @@ func (cl *Client) HandleRead() {
 	var messageTransport MessageTransport
 	for scanner.Scan() {
 		Decode(scanner.Bytes(), &messageTransport)
+		log.Printf("Received a message type: %s", messageTransport.MsgType)
 		switch messageTransport.MsgType {
 		case TypeMessageGame:
 			var message MessageGame
 			Decode(messageTransport.Data, &message)
 			cl.Game = GameFromFEN(message.Fen)
+			if message.IsTurn {
+				cl.StatusTextView.SetText("Your turn!")
+			} else {
+				cl.StatusTextView.SetText("Opponent turn!")
+			}
 			cl.RenderTable()
 
 		case TypeMessageConnect:
@@ -240,7 +267,21 @@ func (cl *Client) HandleRead() {
 			Decode(messageTransport.Data, &message)
 			cl.Game = GameFromFEN(message.Fen)
 			cl.Color = message.Color
+			if message.IsTurn {
+				cl.StatusTextView.SetText("Your turn!")
+			} else {
+				cl.StatusTextView.SetText("Opponent turn!")
+			}
+
 			cl.RenderTable()
+
+		case TypeMessageGameChat:
+			var message MessageGameChat
+			Decode(messageTransport.Data, &message)
+			currentText := cl.ChatTextView.GetText(true)
+			displayText := fmt.Sprintf("%s: %s", message.Name, message.Message)
+			cl.ChatTextView.SetText(fmt.Sprintf("%s\n%s", currentText, displayText))
+			go cl.App.Draw()
 
 		default:
 			log.Printf("Received Unknown message")

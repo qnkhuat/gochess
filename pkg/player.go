@@ -34,6 +34,7 @@ type Player struct {
 	In    chan MessageInterface
 	Out   chan MessageInterface
 	Id    int
+	Name  string
 }
 
 func NewPlayer(conn net.Conn) *Player {
@@ -68,8 +69,8 @@ func (p *Player) HandleWrite() {
 			b = append(b, '\n')
 		}
 		if _, err := p.Conn.Write(b); err != nil {
-			log.Fatal(err)
+			//log.Fatal(err)
+			log.Println("Failed to write")
 		}
-		log.Printf("Send a msg type :%s", message.Type())
 	}
 }
