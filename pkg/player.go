@@ -31,19 +31,16 @@ func (pc PlayerColor) String() string {
 type Player struct {
 	Conn  net.Conn
 	Color PlayerColor
-	In    chan MessageInterface
 	Out   chan MessageInterface
 	Id    int
 	Name  string
 }
 
 func NewPlayer(conn net.Conn) *Player {
-	In := make(chan MessageInterface, ConnQueueSize)
 	Out := make(chan MessageInterface, ConnQueueSize)
 
 	p := &Player{
 		Conn: conn,
-		In:   In,
 		Out:  Out,
 	}
 	return p
@@ -69,8 +66,11 @@ func (p *Player) HandleWrite() {
 			b = append(b, '\n')
 		}
 		if _, err := p.Conn.Write(b); err != nil {
-			//log.Fatal(err)
-			log.Println("Failed to write")
+			log.Printf("Failed to write: %v Error: %v", message, err)
 		}
 	}
+}
+
+func (p *Player) Disconnect() {
+	p.Conn.Close()
 }

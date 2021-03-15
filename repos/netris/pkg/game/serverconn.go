@@ -66,7 +66,7 @@ func Connect(address string) *ServerConn {
 	network, address = NetworkAndAddress(address)
 
 	for {
-		// MARK : connect to the server 
+		// MARK : connect to the server
 		conn, err = net.DialTimeout(network, address, ConnTimeout)
 		if err != nil {
 			if tries > 25 {

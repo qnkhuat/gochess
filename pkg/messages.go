@@ -17,6 +17,8 @@ const (
 	TypeMessageTransport
 	TypeMessageConnect
 	TypeMessageGameChat
+	TypeMessageGameAction
+	TypeMessageGameStatus
 )
 
 func (m MessageType) String() string {
@@ -31,6 +33,10 @@ func (m MessageType) String() string {
 		return "TypeMessageConnect"
 	case TypeMessageGameChat:
 		return "TypeMessageGameChat"
+	case TypeMessageGameAction:
+		return "TypeMessageGameAction"
+	case TypeMessageGameStatus:
+		return "TypeMessageGameStatus"
 	default:
 		return "Unknown MessageType"
 	}
@@ -96,18 +102,16 @@ func (m MessageConnect) Type() MessageType {
 }
 
 //
-type GameCommand int
-
-const (
-	GameCommandDraw GameCommand = iota
-	GameCommandResign
-)
-
-type MessageGameCommand struct {
-	Command GameCommand
+type MessageGameAction struct {
+	Action  Action
+	Message string
 }
 
-//
+func (m MessageGameAction) Type() MessageType {
+	return TypeMessageGameAction
+}
+
+// Chatting purpose
 type MessageGameChat struct {
 	Message string
 	Name    string
@@ -116,4 +120,13 @@ type MessageGameChat struct {
 
 func (m MessageGameChat) Type() MessageType {
 	return TypeMessageGameChat
+}
+
+//
+type MessageGameStatus struct {
+	Message string
+}
+
+func (m MessageGameStatus) Type() MessageType {
+	return TypeMessageGameStatus
 }

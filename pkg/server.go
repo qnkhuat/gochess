@@ -101,7 +101,7 @@ func NewServer() *Server {
 
 	In := make(chan MessageInterface, MessageQueueSize)
 	Out := make(chan MessageInterface, MessageQueueSize)
-	game := chess.NewGame(chess.UseNotation(chess.UCINotation{}))
+	game := NewGame()
 	server := &Server{
 		Server: s,
 		Game:   game,
@@ -109,10 +109,13 @@ func NewServer() *Server {
 		In:     In,
 		Out:    Out,
 	}
-	go server.HandleWrite()
 	go server.HandleRead()
 
 	return server
+}
+
+func NewGame() *chess.Game {
+	return chess.NewGame(chess.UseNotation(chess.UCINotation{}))
 }
 
 func (s *Server) AddPlayer(p *Player) {
@@ -136,6 +139,15 @@ func (s *Server) AddPlayer(p *Player) {
 		IsTurn: s.Turn == p.Color,
 		Color:  p.Color,
 	}
+
+	m := MessageGameChat{
+		Message: fmt.Sprintf("[grey]Player %s has joined[white]", p.Color),
+		Name:    "Server",
+	}
+	messageData := Encode(m)
+	messageTransport := MessageTransport{MsgType: m.Type(), Data: messageData}
+	s.In <- messageTransport
+
 	log.Printf("Added a Player: %s", p.Color)
 }
 
@@ -159,46 +171,101 @@ func (s *Server) HandleRead() {
 				} else {
 					s.Turn = White
 				}
-				s.Out <- MessageGame{Fen: s.GameFEN()}
-			} else {
-				log.Println("Not your turn bro")
+				m := MessageGame{Fen: s.GameFEN()}
+				for _, p := range s.Players { // Broadcast the game to all users
+					m.IsTurn = p.Color == s.Turn
+					p.Out <- m
+				}
 			}
 		case TypeMessageGameChat:
 			var message MessageGameChat
 			Decode(messageTransport.Data, &message)
 
 			var senderName string
-			if s.Players[messageTransport.PlayerId].Name != "" {
+			if message.Name == "Server" { // Broadcast message from server
+				senderName = message.Name
+			} else if s.Players[messageTransport.PlayerId].Name != "" {
 				senderName = s.Players[messageTransport.PlayerId].Name
 			} else {
 				senderName = fmt.Sprintf("ID[%v]", strconv.Itoa(messageTransport.PlayerId))
 			}
 			message.Name = senderName
-			s.Out <- message
-
-		default:
-			log.Printf("Received Unknown message")
-		}
-	}
-}
-
-func (s *Server) HandleWrite() {
-	for message := range s.Out {
-		//switch message.Type() {
-		switch m := message.(type) {
-		case MessageGame:
 			for _, p := range s.Players { // Broadcast the game to all users
-				m.IsTurn = p.Color == s.Turn
-				p.Out <- m
+				p.Out <- message
 			}
-		case MessageGameChat:
-			for _, p := range s.Players { // Broadcast the game to all users
-				p.Out <- m
-			}
+		case TypeMessageGameAction:
+			var message MessageGameAction
+			Decode(messageTransport.Data, &message)
+			switch message.Action {
+			case ActionResignYes:
+				for _, p := range s.Players {
+					if p.Id == messageTransport.PlayerId {
+						p.Out <- MessageGameAction{Action: ActionLose, Message: "by resignation"}
+					} else {
+						p.Out <- MessageGameAction{Action: ActionWin, Message: "by resigination"}
+					}
+					// TODO handle case for viewer
+				}
 
-		default:
-			log.Println("Received Unknown message")
+			// Draw
+			case ActionDrawOffer:
+				for _, p := range s.Players {
+					if p.Id != messageTransport.PlayerId {
+						p.Out <- MessageGameAction{Action: ActionDrawOffer}
+						p.Out <- MessageGameStatus{Message: "Opponent offer draw!"}
+					}
+				}
+
+			case ActionDrawAccept:
+				for _, p := range s.Players {
+					p.Out <- MessageGameAction{Action: ActionDraw}
+				}
+
+			case ActionDrawReject:
+				for _, p := range s.Players {
+					if p.Id != messageTransport.PlayerId {
+						p.Out <- MessageGameStatus{Message: "Rejected draw offer"}
+					}
+				}
+
+			// New Game
+			case ActionNewGameOffer:
+				for _, p := range s.Players {
+					if p.Id != messageTransport.PlayerId {
+						p.Out <- MessageGameAction{Action: ActionNewGameOffer}
+						p.Out <- MessageGameStatus{Message: "New Game?"}
+					}
+				}
+
+			case ActionNewGameAccept:
+				s.Game = NewGame()
+				m := MessageGame{Fen: s.GameFEN()}
+				for _, p := range s.Players {
+					// TODO switch color
+					m.IsTurn = p.Color == s.Turn
+					p.Out <- m
+				}
+
+			case ActionNewGameReject:
+				for _, p := range s.Players {
+					if p.Id != messageTransport.PlayerId {
+						p.Out <- MessageGameStatus{Message: "Rejected New Game offer"}
+						p.Disconnect()
+					}
+				}
+
+			// Exit
+			case ActionExit:
+				for _, p := range s.Players {
+					if p.Id != messageTransport.PlayerId {
+						p.Out <- MessageGameStatus{Message: "Opponent exited!"}
+					}
+					p.Disconnect()
+				}
+
+			default:
+				log.Printf("Received Unknown message")
+			}
 		}
-		log.Printf("Send a message type: %T", message)
 	}
 }

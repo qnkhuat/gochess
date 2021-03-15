@@ -13,20 +13,25 @@ import (
 )
 
 type Client struct {
-	Game           *chess.Game
-	App            *tview.Application
-	Board          *tview.Table
-	Layout         *tview.Grid
-	Conn           net.Conn
-	In             chan MessageInterface
-	Out            chan MessageInterface
-	selecting      bool
-	lastSelection  chess.Square
-	highlights     map[chess.Square]bool
-	Color          PlayerColor
+	Game          *chess.Game
+	App           *tview.Application
+	Board         *tview.Table
+	Layout        *tview.Grid
+	Conn          net.Conn
+	In            chan MessageInterface
+	Out           chan MessageInterface
+	selecting     bool
+	lastSelection chess.Square
+	highlights    map[chess.Square]bool
+	Color         PlayerColor
+	optionBtn1    *tview.Button // Draw, Accept, Yes
+	optionBtn2    *tview.Button // Resign, Reject, No
+}
+
+var (
 	ChatTextView   *tview.TextView
 	StatusTextView *tview.TextView
-}
+)
 
 const (
 	numrows             = 8
@@ -58,27 +63,120 @@ func (cl *Client) Disconnect() {
 	cl.Conn.Close()
 }
 
+func (cl *Client) HandleAction(action Action) {
+	switch action {
+
+	// Resign
+	case ActionResignPrompt:
+		cl.optionBtn1.SetLabel(string(ActionResignYes))
+		cl.optionBtn2.SetLabel(string(ActionResignNo))
+
+	case ActionResignYes:
+		cl.Out <- MessageGameAction{Action: action}
+
+	case ActionResignNo:
+		cl.optionBtn1.SetLabel(string(ActionDrawPrompt))
+		cl.optionBtn2.SetLabel(string(ActionResignPrompt))
+
+	// Draw
+	case ActionDrawOffer:
+		cl.optionBtn1.SetLabel(string(ActionDrawAccept))
+		cl.optionBtn2.SetLabel(string(ActionDrawReject))
+
+	case ActionDrawPrompt:
+		cl.Out <- MessageGameAction{Action: ActionDrawOffer}
+
+	case ActionDrawAccept:
+		cl.Out <- MessageGameAction{Action: action}
+		cl.optionBtn1.SetLabel(string(ActionDrawPrompt))
+		cl.optionBtn2.SetLabel(string(ActionResignPrompt))
+
+	case ActionDrawReject:
+		cl.Out <- MessageGameAction{Action: action}
+		cl.optionBtn1.SetLabel(string(ActionDrawPrompt))
+		cl.optionBtn2.SetLabel(string(ActionResignPrompt))
+
+	// New Game
+	case ActionNewGameOffer:
+		cl.optionBtn1.SetLabel(string(ActionNewGameAccept))
+		cl.optionBtn2.SetLabel(string(ActionNewGameReject))
+
+	case ActionNewGamePrompt:
+		log.Println("offering new game")
+		cl.Out <- MessageGameAction{Action: ActionNewGameOffer}
+		cl.optionBtn1.SetLabel(string(ActionDrawPrompt))
+		cl.optionBtn2.SetLabel(string(ActionResignPrompt))
+
+	case ActionNewGameAccept:
+		cl.Out <- MessageGameAction{Action: action}
+		cl.optionBtn1.SetLabel(string(ActionDrawPrompt))
+		cl.optionBtn2.SetLabel(string(ActionResignPrompt))
+
+	case ActionNewGameReject:
+		cl.Out <- MessageGameAction{Action: action}
+		//cl.Disconnect()
+
+	// Result
+	case ActionWin, ActionLose, ActionDraw:
+		cl.optionBtn1.SetLabel(string(ActionNewGamePrompt))
+		cl.optionBtn2.SetLabel(string(ActionExit))
+
+	case ActionExit:
+		cl.Out <- MessageGameAction{Action: ActionExit}
+		cl.Disconnect()
+
+	default:
+		log.Println("Unknown action")
+	}
+	go cl.App.Draw()
+}
+
 func (cl *Client) InitGUI() {
 	// Game options
-	drawBtn := tview.NewButton("Draw").SetSelectedFunc(func() {
-		cl.Disconnect()
-		// Send draw offer
+	cl.optionBtn1 = tview.NewButton(string(ActionDrawPrompt))
+	cl.optionBtn2 = tview.NewButton(string(ActionResignPrompt))
+	cl.optionBtn1.SetSelectedFunc(func() {
+		switch cl.optionBtn1.GetLabel() {
+		case string(ActionDrawPrompt):
+			go cl.HandleAction(ActionDrawPrompt)
+		case string(ActionResignYes):
+			go cl.HandleAction(ActionResignYes)
+		case string(ActionDrawAccept):
+			go cl.HandleAction(ActionDrawAccept)
+		case string(ActionNewGamePrompt):
+			go cl.HandleAction(ActionNewGamePrompt)
+		case string(ActionNewGameAccept):
+			go cl.HandleAction(ActionNewGameAccept)
+
+		}
 	})
 
-	resignBtn := tview.NewButton("Resign").SetSelectedFunc(func() {
-		cl.Disconnect()
-		// Send resign
+	cl.optionBtn2.SetSelectedFunc(func() {
+		switch cl.optionBtn2.GetLabel() {
+		case string(ActionResignPrompt):
+			go cl.HandleAction(ActionResignPrompt)
+		case string(ActionResignNo):
+			go cl.HandleAction(ActionResignNo)
+		case string(ActionDrawReject):
+			go cl.HandleAction(ActionDrawReject)
+		case string(ActionExit):
+			go cl.HandleAction(ActionExit)
+		case string(ActionNewGameReject):
+			go cl.HandleAction(ActionNewGameReject)
+
+		}
 	})
 
-	statusText := tview.NewTextView().
-		SetText("This is where message is gonna be")
+	StatusTextView = tview.NewTextView().
+		SetText("This is where message is gonna be").
+		SetDynamicColors(true)
 
 	gameOptions := tview.NewGrid().
 		SetColumns(3, 10, 1, 10, 3).
 		SetRows(3, 1, 3, -1).
-		AddItem(statusText, 0, 0, 1, 5, 0, 0, false).
-		AddItem(drawBtn, 2, 1, 1, 1, 0, 0, false).
-		AddItem(resignBtn, 2, 3, 1, 1, 0, 0, false)
+		AddItem(StatusTextView, 0, 0, 1, 5, 0, 0, false).
+		AddItem(cl.optionBtn1, 2, 1, 1, 1, 0, 0, false).
+		AddItem(cl.optionBtn2, 2, 3, 1, 1, 0, 0, false)
 
 	messageInput := tview.NewInputField()
 	messageInput.SetLabel("[red]>[red] ").
@@ -87,14 +185,14 @@ func (cl *Client) InitGUI() {
 			messageInput.SetText("")
 		})
 
-	chatTextView := tview.NewTextView().
-		SetText("a Message from user\nNgoc dep trai vl").
-		SetScrollable(true)
+	ChatTextView = tview.NewTextView().
+		SetScrollable(true).
+		SetDynamicColors(true)
 
 	chatGrid := tview.NewGrid().
 		SetColumns(60).
 		SetRows(9, 1, 1).
-		AddItem(chatTextView, 0, 0, 1, 1, 0, 0, false).
+		AddItem(ChatTextView, 0, 0, 1, 1, 0, 0, false).
 		AddItem(messageInput, 2, 0, 1, 1, 0, 0, false)
 
 	board := tview.NewTable()
@@ -106,8 +204,6 @@ func (cl *Client) InitGUI() {
 		AddItem(gameOptions, 1, 2, 1, 1, 0, 0, false).
 		AddItem(chatGrid, 2, 1, 1, 2, 0, 0, false)
 
-	cl.StatusTextView = statusText
-	cl.ChatTextView = chatTextView
 	cl.Layout = layout
 	cl.Board = board
 
@@ -223,8 +319,14 @@ func (cl *Client) RenderTable() {
 func (cl *Client) Connect(port string) {
 	log.Printf("Connecting to port: %s", port)
 	conn, err := net.Dial("tcp", port)
+	err = conn.(*net.TCPConn).SetKeepAlive(true)
 	if err != nil {
 		log.Panic(err)
+	}
+	err = conn.(*net.TCPConn).SetKeepAlivePeriod(10 * time.Second)
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
 	cl.Conn = conn
 }
@@ -256,9 +358,9 @@ func (cl *Client) HandleRead() {
 			Decode(messageTransport.Data, &message)
 			cl.Game = GameFromFEN(message.Fen)
 			if message.IsTurn {
-				cl.StatusTextView.SetText("Your turn!")
+				StatusTextView.SetText("Your turn!")
 			} else {
-				cl.StatusTextView.SetText("Opponent turn!")
+				StatusTextView.SetText("Opponent turn!")
 			}
 			cl.RenderTable()
 
@@ -268,9 +370,9 @@ func (cl *Client) HandleRead() {
 			cl.Game = GameFromFEN(message.Fen)
 			cl.Color = message.Color
 			if message.IsTurn {
-				cl.StatusTextView.SetText("Your turn!")
+				StatusTextView.SetText("Your turn!")
 			} else {
-				cl.StatusTextView.SetText("Opponent turn!")
+				StatusTextView.SetText("Opponent turn!")
 			}
 
 			cl.RenderTable()
@@ -278,13 +380,37 @@ func (cl *Client) HandleRead() {
 		case TypeMessageGameChat:
 			var message MessageGameChat
 			Decode(messageTransport.Data, &message)
-			currentText := cl.ChatTextView.GetText(true)
+			currentText := ChatTextView.GetText(false)
 			displayText := fmt.Sprintf("%s: %s", message.Name, message.Message)
-			cl.ChatTextView.SetText(fmt.Sprintf("%s\n%s", currentText, displayText))
+			ChatTextView.
+				SetText(fmt.Sprintf("%s%s", currentText, displayText)).
+				ScrollToEnd()
 			go cl.App.Draw()
 
+		case TypeMessageGameStatus:
+			var message MessageGameChat
+			Decode(messageTransport.Data, &message)
+			StatusTextView.SetText(message.Message)
+
+			go cl.App.Draw()
+
+		case TypeMessageGameAction:
+			var message MessageGameAction
+			Decode(messageTransport.Data, &message)
+			switch message.Action {
+
+			case ActionWin, ActionLose, ActionDraw:
+				StatusTextView.SetText(fmt.Sprintf("%s %s", string(message.Action), message.Message))
+				cl.HandleAction(message.Action)
+				go cl.App.Draw()
+
+			case ActionDrawOffer, ActionNewGameOffer: // Opponent send draw offer
+				cl.HandleAction(message.Action)
+
+			}
+
 		default:
-			log.Printf("Received Unknown message")
+			log.Printf("Received Unknown action")
 		}
 	}
 }
