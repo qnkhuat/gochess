@@ -85,6 +85,7 @@ func (cl *Client) HandleAction(action Action) {
 
 	case ActionDrawPrompt:
 		cl.Out <- MessageGameAction{Action: ActionDrawOffer}
+		StatusTextView.SetText("Draw offer sent!")
 
 	case ActionDrawAccept:
 		cl.Out <- MessageGameAction{Action: action}
@@ -102,10 +103,8 @@ func (cl *Client) HandleAction(action Action) {
 		cl.optionBtn2.SetLabel(string(ActionNewGameReject))
 
 	case ActionNewGamePrompt:
-		log.Println("offering new game")
 		cl.Out <- MessageGameAction{Action: ActionNewGameOffer}
-		cl.optionBtn1.SetLabel(string(ActionDrawPrompt))
-		cl.optionBtn2.SetLabel(string(ActionResignPrompt))
+		StatusTextView.SetText("Invitation sent!")
 
 	case ActionNewGameAccept:
 		cl.Out <- MessageGameAction{Action: action}
@@ -114,7 +113,8 @@ func (cl *Client) HandleAction(action Action) {
 
 	case ActionNewGameReject:
 		cl.Out <- MessageGameAction{Action: action}
-		//cl.Disconnect()
+		cl.optionBtn1.SetLabel(string(ActionNewGamePrompt))
+		cl.optionBtn2.SetLabel(string(ActionExit))
 
 	// Result
 	case ActionWin, ActionLose, ActionDraw:
@@ -362,6 +362,8 @@ func (cl *Client) HandleRead() {
 			} else {
 				StatusTextView.SetText("Opponent turn!")
 			}
+			cl.optionBtn1.SetLabel(ActionDrawPrompt)
+			cl.optionBtn2.SetLabel(ActionResignPrompt)
 			cl.RenderTable()
 
 		case TypeMessageConnect:
@@ -406,6 +408,9 @@ func (cl *Client) HandleRead() {
 
 			case ActionDrawOffer, ActionNewGameOffer: // Opponent send draw offer
 				cl.HandleAction(message.Action)
+
+			case ActionNewGameAccept:
+				cl.HandleAction(ActionDraw)
 
 			}
 

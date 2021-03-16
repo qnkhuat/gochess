@@ -250,7 +250,7 @@ func (s *Server) HandleRead() {
 				for _, p := range s.Players {
 					if p.Id != messageTransport.PlayerId {
 						p.Out <- MessageGameStatus{Message: "Rejected New Game offer"}
-						p.Disconnect()
+						//p.Disconnect()
 					}
 				}
 
