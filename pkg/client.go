@@ -16,7 +16,8 @@ type Client struct {
 	Game          *chess.Game
 	App           *tview.Application
 	Board         *tview.Table
-	Layout        *tview.Grid
+	GameLayout    *tview.Grid
+	MenuLayout    *tview.Grid
 	Conn          net.Conn
 	In            chan MessageInterface
 	Out           chan MessageInterface
@@ -31,6 +32,7 @@ type Client struct {
 var (
 	ChatTextView   *tview.TextView
 	StatusTextView *tview.TextView
+	MenuTextView   *tview.TextView
 )
 
 const (
@@ -133,7 +135,8 @@ func (cl *Client) HandleAction(action Action) {
 }
 
 func (cl *Client) InitGUI() {
-	// Game options
+	// Game Layout
+
 	cl.optionBtn1 = tview.NewButton(string(ActionDrawPrompt))
 	cl.optionBtn2 = tview.NewButton(string(ActionResignPrompt))
 	cl.optionBtn1.SetSelectedFunc(func() {
@@ -148,7 +151,6 @@ func (cl *Client) InitGUI() {
 			go cl.HandleAction(ActionNewGamePrompt)
 		case string(ActionNewGameAccept):
 			go cl.HandleAction(ActionNewGameAccept)
-
 		}
 	})
 
@@ -196,20 +198,49 @@ func (cl *Client) InitGUI() {
 
 	board := tview.NewTable()
 
-	layout := tview.NewGrid().
+	gameLayout := tview.NewGrid().
 		SetRows(-1, 10, 11, -1).
 		SetColumns(-1, 30, 30, -1).
 		AddItem(board, 1, 1, 1, 1, 0, 0, true).
 		AddItem(gameOptions, 1, 2, 1, 1, 0, 0, false).
 		AddItem(chatGrid, 2, 1, 1, 2, 0, 0, false)
 
-	cl.Layout = layout
 	cl.Board = board
+	cl.GameLayout = gameLayout
+	cl.initBoard()
 
-	cl.init_table()
+	// Menu Layout
+	menuInput := tview.NewInputField()
+	menuInput.SetLabel("[red]>[red] ").
+		SetDoneFunc(func(key tcell.Key) {
+			//cl.Out <- MessageGameChat{Message: messageInput.GetText(), Time: time.Now()}
+			menuInput.SetText("")
+		})
+
+	MenuTextView = tview.NewTextView().
+		SetText(`WELCOME TO [green]CHESSTERM[white]
+
+In the lazyness of building an UI, chessterm comes with a list of commands to join a game:
+> [green]ls[white]            : List all the games
+> [green]join[gray] (code)[white]   : Join a game.  Live blank to join randomly 
+> [green]create[gray] (code)[white] : Create a game with code name
+> [green]about[white]         : About the developer of Chessterm
+> [green]exit[white]          : To exit
+`).
+		SetScrollable(true).
+		SetDynamicColors(true).
+		SetWordWrap(true)
+
+	menuLayout := tview.NewGrid().
+		SetRows(-1, 10, 1, -1).
+		SetColumns(-1, 60, -1).
+		AddItem(MenuTextView, 1, 1, 1, 1, 0, 0, false).
+		AddItem(menuInput, 2, 1, 1, 1, 0, 0, true)
+
+	cl.MenuLayout = menuLayout
 }
 
-func (cl *Client) init_table() {
+func (cl *Client) initBoard() {
 	cl.renderBoard()
 	cl.Board.SetSelectable(true, true)
 	cl.Board.Select(0, 0).SetDoneFunc(func(key tcell.Key) {

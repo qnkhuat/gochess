@@ -27,8 +27,7 @@ func main() {
 	cl.Connect(ServerPort)
 	go cl.HandleRead()
 	go cl.HandleWrite()
-	if err := cl.App.SetRoot(cl.Layout, true).EnableMouse(true).Run(); err != nil {
-		panic(err)
+	if err := cl.App.SetRoot(cl.GameLayout, true).EnableMouse(true).Run(); err != nil {
 		done <- true
 	}
 
