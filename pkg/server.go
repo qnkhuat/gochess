@@ -1,8 +1,10 @@
 package pkg
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"github.com/Pallinder/go-randomdata"
 	"github.com/creack/pty"
 	"github.com/gliderlabs/ssh"
 	"io"
@@ -11,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"syscall"
 	"time"
 	"unsafe"
@@ -26,6 +29,7 @@ const (
 type Server struct {
 	*ssh.Server
 	Matches map[string]*Match
+	Clients []net.Conn
 }
 
 func setWinsize(f *os.File, w, h int) {
@@ -95,9 +99,11 @@ func NewServer() *Server {
 	}()
 
 	matches := make(map[string]*Match)
+	clients := make([]net.Conn, 0)
 	server := &Server{
 		Server:  s,
 		Matches: matches,
+		Clients: clients,
 	}
 
 	return server
@@ -110,5 +116,100 @@ func (s *Server) AddConn(conn net.Conn, matchId string) {
 	}
 	s.Matches[matchId] = NewMatch()
 	s.Matches[matchId].AddConn(conn)
-	return
+}
+
+func (s *Server) HandleConn(conn net.Conn) {
+
+	out := make(chan MessageInterface)
+	go func() {
+		for {
+			for message := range out {
+				messageData := Encode(message)
+				messageTransport := &MessageTransport{MsgType: message.Type(), Data: messageData}
+				b := Encode(messageTransport)
+				if b[len(b)-1] != '\n' { // EOF
+					b = append(b, '\n')
+				}
+				if _, err := conn.Write(b); err != nil {
+					log.Printf("Failed to write: %v Error: %v", message, err)
+				}
+			}
+		}
+	}()
+
+	scanner := bufio.NewScanner(conn)
+	var messageTransport MessageTransport
+	for scanner.Scan() {
+		Decode(scanner.Bytes(), &messageTransport)
+		switch messageTransport.MsgType {
+		case TypeMessageGameCommand:
+			var message MessageGameCommand
+			Decode(messageTransport.Data, &message)
+			switch message.Command {
+
+			case CommandCreate:
+				var matchName string
+				if message.Argument == "" {
+					matchName = s.NewMatchName()
+				} else {
+					matchName = message.Argument
+				}
+				matchName = strings.ToLower(strings.TrimSpace(matchName))
+				if !s.IsMatchExisted(matchName) {
+					s.AddConn(conn, matchName)
+					return
+				} else {
+					matchName = s.NewMatchName()
+					out <- MessageGameCommand{Command: CommandMessage, Argument: fmt.Sprintf("Name existed! How about name it: %s?", matchName)}
+				}
+
+			case CommandJoin:
+				var matchName string
+				matchName = message.Argument
+
+				if s.IsMatchExisted(matchName) {
+					s.AddConn(conn, matchName)
+					return
+				} else {
+					out <- MessageGameCommand{Command: CommandMessage, Argument: fmt.Sprintf("Match name %s not existed! type [green]create %s[white] to create one!", matchName, matchName)}
+				}
+
+			case CommandLs:
+				listMatchString := ""
+				for matchName, match := range s.Matches {
+					player_count := 0
+					viewer_count := 0
+					for _, p := range match.Players {
+						if p.Role == White || p.Role == Black {
+							player_count++
+						} else {
+							viewer_count++
+						}
+					}
+					listMatchString += fmt.Sprintf("Match: %s (#Player: %d/2, #Viewer: %d)\n", matchName, player_count, viewer_count)
+				}
+				out <- MessageGameCommand{Command: CommandMessage, Argument: listMatchString}
+
+			default:
+				log.Println("Unknown command")
+			}
+		default:
+			log.Println("Unknown message type")
+		}
+	}
+}
+
+func (s *Server) IsMatchExisted(name string) bool {
+	_, ok := s.Matches[name]
+	return ok
+}
+
+func (s *Server) NewMatchName() string {
+	// TODO there might be a case when we ran out of countries name, but I'm afraid so lol
+	for {
+		matchName := randomdata.Country(randomdata.FullCountry)
+		if !s.IsMatchExisted(matchName) {
+			return matchName
+		}
+	}
 }

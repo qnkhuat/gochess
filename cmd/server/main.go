@@ -28,11 +28,12 @@ func main() {
 	}
 	for {
 		conn, err := listener.Accept()
-		s.AddConn(conn, "match")
+		//s.AddConn(conn, "match")
 		if err != nil {
 			log.Println("Failed to connect %v", err)
 			continue
 		}
+		go s.HandleConn(conn)
 	}
 
 	// Keep the server run

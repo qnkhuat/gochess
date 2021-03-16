@@ -40,6 +40,17 @@ const (
 	numcols             = 8
 	numOfSquaresInBoard = 8 * 8
 	ConnQueueSize       = 10
+	commandlist         = `
+In the lazyness of building an UI, chessterm comes with a list of commands to join a game:
+
+> [green]ls[white]            : List all the games
+> [green]join [red](code)[white]   : Join a game.  Live blank to join randomly 
+> [green]create [gray](code)[white] : Create a game with code name
+> [green]help[white]          : To display this list
+> [green]about[white]         : About the developer of Chessterm
+> [green]exit[white]          : To exit`
+
+//> [green]callme [red](name)[white] : To set your name
 )
 
 func NewClient() *Client {
@@ -214,28 +225,70 @@ func (cl *Client) InitGUI() {
 	menuInput.SetLabel("[red]>[red] ").
 		SetDoneFunc(func(key tcell.Key) {
 			//cl.Out <- MessageGameChat{Message: messageInput.GetText(), Time: time.Now()}
+			command := strings.TrimSpace(strings.ToLower(menuInput.GetText()))
+			commands := strings.Split(command, " ")
 			menuInput.SetText("")
+			switch commands[0] {
+			case "ls":
+				cl.Out <- MessageGameCommand{Command: CommandLs}
+
+			case "join":
+				var roomName string
+				if len(commands) > 1 {
+					roomName = strings.Join(commands[1:], "_")
+				}
+
+				cl.Out <- MessageGameCommand{Command: CommandJoin, Argument: roomName}
+
+			case "create":
+				var roomName string
+				if len(commands) > 1 {
+					roomName = strings.Join(commands[1:], "_")
+				}
+				cl.Out <- MessageGameCommand{Command: CommandCreate, Argument: roomName}
+
+			case "exit":
+				cl.Disconnect()
+
+			case "about":
+				currentText := MenuTextView.GetText(false)
+				aboutText := `[green]Github[white]  : github.com/qnkhuat
+[green]Website[white] : ngockhuat.me
+[green]Twitter[white] : @qnkhuat
+[green]Email[white]   : qn.khuat@gmail.com
+				`
+				MenuTextView.
+					SetText(fmt.Sprintf("%s\n%s", currentText, aboutText)).
+					ScrollToEnd()
+
+			case "help":
+				currentText := MenuTextView.GetText(false)
+				MenuTextView.
+					SetText(fmt.Sprintf("%s\n%s", currentText, commandlist)).
+					ScrollToEnd()
+
+			default:
+				currentText := MenuTextView.GetText(false)
+				helpText := "Invalid command. Try help"
+				MenuTextView.
+					SetText(fmt.Sprintf("%s\n%s", currentText, helpText)).
+					ScrollToEnd()
+
+			}
 		})
 
 	MenuTextView = tview.NewTextView().
-		SetText(`WELCOME TO [green]CHESSTERM[white]
-
-In the lazyness of building an UI, chessterm comes with a list of commands to join a game:
-> [green]ls[white]            : List all the games
-> [green]join[gray] (code)[white]   : Join a game.  Live blank to join randomly 
-> [green]create[gray] (code)[white] : Create a game with code name
-> [green]about[white]         : About the developer of Chessterm
-> [green]exit[white]          : To exit
-`).
+		SetText("WELCOME TO [green]CHESSTERM[white]" + commandlist).
 		SetScrollable(true).
 		SetDynamicColors(true).
-		SetWordWrap(true)
+		SetWordWrap(true).
+		ScrollToEnd()
 
 	menuLayout := tview.NewGrid().
-		SetRows(-1, 10, 1, -1).
+		SetRows(-1, 15, 1, 1, -1).
 		SetColumns(-1, 60, -1).
 		AddItem(MenuTextView, 1, 1, 1, 1, 0, 0, false).
-		AddItem(menuInput, 2, 1, 1, 1, 0, 0, true)
+		AddItem(menuInput, 3, 1, 1, 1, 0, 0, true)
 
 	cl.MenuLayout = menuLayout
 }
@@ -402,6 +455,7 @@ func (cl *Client) HandleRead() {
 
 		case TypeMessageConnect:
 			var message MessageConnect
+			cl.App.SetRoot(cl.GameLayout, true)
 			Decode(messageTransport.Data, &message)
 			cl.Game = GameFromFEN(message.Fen)
 			cl.Role = message.Role
@@ -448,6 +502,19 @@ func (cl *Client) HandleRead() {
 
 			case ActionNewGameAccept:
 				cl.HandleAction(ActionDraw)
+
+			}
+		case TypeMessageGameCommand:
+			var message MessageGameCommand
+			Decode(messageTransport.Data, &message)
+			switch message.Command {
+
+			case CommandMessage:
+				currentText := MenuTextView.GetText(false)
+				MenuTextView.
+					SetText(fmt.Sprintf("%s\n%s", currentText, message.Argument)).
+					ScrollToEnd()
+				go cl.App.Draw()
 
 			}
 

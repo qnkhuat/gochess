@@ -75,9 +75,6 @@ func (p *Player) HandleWrite() {
 		if b[len(b)-1] != '\n' { // EOF
 			b = append(b, '\n')
 		}
-		if p.Conn == nil {
-			return
-		}
 		if _, err := p.Conn.Write(b); err != nil {
 			log.Printf("Failed to write: %v Error: %v", message, err)
 		}

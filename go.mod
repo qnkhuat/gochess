@@ -3,6 +3,7 @@ module github.com/qnkhuat/chessterm
 go 1.15
 
 require (
+	github.com/Pallinder/go-randomdata v1.2.0 // indirect
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
 	github.com/creack/pty v1.1.11
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
