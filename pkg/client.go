@@ -233,6 +233,10 @@ func (cl *Client) init_table() {
 				move := fmt.Sprintf("%s%s", cl.lastSelection.String(), sq.String())
 				validMoves := cl.Game.ValidMoves()
 				isValid := false
+				p := cl.Game.Position().Board().Piece(cl.lastSelection)
+				if p.Type() == chess.Pawn && ((move[1] == '7' && move[3] == '8') || move[1] == '2' && move[3] == '1') { // Auto promoting to Queen
+					move += "q"
+				}
 				for _, validMove := range validMoves {
 					if strings.Compare(validMove.String(), move) == 0 {
 						isValid = true
