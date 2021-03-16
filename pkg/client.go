@@ -171,7 +171,7 @@ func (cl *Client) InitGUI() {
 		SetDynamicColors(true)
 
 	gameOptions := tview.NewGrid().
-		SetColumns(3, 10, 1, 10, 3).
+		SetColumns(3, 11, 1, 11, 3).
 		SetRows(3, 1, 3, -1).
 		AddItem(StatusTextView, 0, 0, 1, 5, 0, 0, false).
 		AddItem(cl.optionBtn1, 2, 1, 1, 1, 0, 0, false).
@@ -400,7 +400,11 @@ func (cl *Client) HandleRead() {
 			switch message.Action {
 
 			case ActionWin, ActionLose, ActionDraw:
-				StatusTextView.SetText(fmt.Sprintf("%s %s", string(message.Action), message.Message))
+				status := string(message.Action)
+				if message.Message != "" {
+					status = fmt.Sprintf("%s by %s", status, message.Message)
+				}
+				StatusTextView.SetText(status)
 				cl.HandleAction(message.Action)
 				go cl.App.Draw()
 

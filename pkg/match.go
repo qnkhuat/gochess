@@ -127,9 +127,9 @@ func (m *Match) HandleRead() {
 				if m.Game.Outcome() != chess.NoOutcome {
 					for _, p := range m.Players { // Broadcast the game to all users
 						if (p.Role == White && m.Game.Outcome() == chess.WhiteWon) || (p.Role == Black && m.Game.Outcome() == chess.BlackWon) {
-							p.Out <- MessageGameAction{Action: ActionWin}
+							p.Out <- MessageGameAction{Action: ActionWin, Message: m.Game.Method().String()}
 						} else {
-							p.Out <- MessageGameAction{Action: ActionLose}
+							p.Out <- MessageGameAction{Action: ActionLose, Message: m.Game.Method().String()}
 						}
 					}
 				}
