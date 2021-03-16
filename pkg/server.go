@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	ServerIdleTimeout = 1 * time.Minute
+	ServerIdleTimeout = 5 * time.Minute
 	SshPort           = ":2222"
 	ServerPort        = ":1998"
 	MessageQueueSize  = 20
@@ -28,10 +28,12 @@ type Server struct {
 	*ssh.Server
 	Game    *chess.Game
 	Players []*Player
+	Viewers []*Player
 	Turn    PlayerColor
 	// TODO : find out a better way to generic this
-	In  chan MessageInterface
-	Out chan MessageInterface
+	In        chan MessageInterface
+	Out       chan MessageInterface
+	Terminate chan int
 }
 
 func setWinsize(f *os.File, w, h int) {
@@ -89,6 +91,7 @@ func NewServer() *Server {
 	// TODO: understand what does it do?
 	homeDir, err := os.UserHomeDir()
 	err = s.SetOption(ssh.HostKeyFile(path.Join(homeDir, ".ssh", "id_rsa")))
+
 	if err != nil {
 		log.Panic(err)
 	}
@@ -101,13 +104,15 @@ func NewServer() *Server {
 
 	In := make(chan MessageInterface, MessageQueueSize)
 	Out := make(chan MessageInterface, MessageQueueSize)
+	Terminate := make(chan int, MessageQueueSize)
 	game := NewGame()
 	server := &Server{
-		Server: s,
-		Game:   game,
-		Turn:   White, // White move first
-		In:     In,
-		Out:    Out,
+		Server:    s,
+		Game:      game,
+		Turn:      White, // White move first
+		In:        In,
+		Out:       Out,
+		Terminate: Terminate,
 	}
 	go server.HandleRead()
 
@@ -145,8 +150,7 @@ func (s *Server) AddPlayer(p *Player) {
 		Name:    "Server",
 	}
 	messageData := Encode(m)
-	messageTransport := MessageTransport{MsgType: m.Type(), Data: messageData}
-	s.In <- messageTransport
+	s.In <- MessageTransport{MsgType: m.Type(), Data: messageData}
 
 	log.Printf("Added a Player: %s", p.Color)
 }
@@ -250,7 +254,6 @@ func (s *Server) HandleRead() {
 				for _, p := range s.Players {
 					if p.Id != messageTransport.PlayerId {
 						p.Out <- MessageGameStatus{Message: "Rejected New Game offer"}
-						//p.Disconnect()
 					}
 				}
 

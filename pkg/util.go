@@ -8,6 +8,12 @@ import (
 	"os"
 )
 
+func remove(s []int, i int) []int {
+	s[i] = s[len(s)-1]
+	// We do not need to put s[i] at the end, as it will be discarded anyway
+	return s[:len(s)-1]
+}
+
 func getSquare(f chess.File, r chess.Rank) chess.Square {
 	return chess.Square((int(r) * 8) + int(f))
 }

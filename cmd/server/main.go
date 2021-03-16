@@ -29,7 +29,6 @@ func main() {
 	}
 	for {
 		conn, err := listener.Accept()
-
 		p := pkg.NewPlayer(conn)
 		s.AddPlayer(p)
 		if err != nil {

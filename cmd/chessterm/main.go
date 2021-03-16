@@ -29,19 +29,23 @@ func main() {
 	go cl.HandleWrite()
 	if err := cl.App.SetRoot(cl.Layout, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
+		done <- true
 	}
 
-	// Keep the server run
+	// Keep the client up
 	sigc := make(chan os.Signal, 1)
-	// Wait for teminate signal
 	signal.Notify(sigc,
 		syscall.SIGINT,
 		syscall.SIGTERM)
-	go func() {
+	go func() { // Down when receive killed signal
 		<-sigc
 
 		done <- true
 	}()
 
-	<-done
+	go func() { // Down when self-killed
+		<-done
+		cl.Disconnect()
+		os.Exit(0)
+	}()
 }

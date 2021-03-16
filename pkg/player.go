@@ -48,6 +48,7 @@ func NewPlayer(conn net.Conn) *Player {
 
 func (p *Player) HandleRead(In chan MessageInterface) {
 	// Receive message, add player info, then forward to server
+	defer p.Disconnect()
 	scanner := bufio.NewScanner(p.Conn)
 	var messageTransport MessageTransport
 	for scanner.Scan() {
@@ -55,6 +56,7 @@ func (p *Player) HandleRead(In chan MessageInterface) {
 		messageTransport.PlayerId = p.Id
 		In <- messageTransport // Forward the message to server
 	}
+	log.Println("Player Disconnected")
 }
 
 func (p *Player) HandleWrite() {
@@ -64,6 +66,9 @@ func (p *Player) HandleWrite() {
 		b := Encode(messageTransport)
 		if b[len(b)-1] != '\n' { // EOF
 			b = append(b, '\n')
+		}
+		if p.Conn == nil {
+			return
 		}
 		if _, err := p.Conn.Write(b); err != nil {
 			log.Printf("Failed to write: %v Error: %v", message, err)

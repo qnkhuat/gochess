@@ -61,6 +61,7 @@ func NewClient() *Client {
 func (cl *Client) Disconnect() {
 	cl.App.Stop()
 	cl.Conn.Close()
+	log.Println("Disconnected")
 }
 
 func (cl *Client) HandleAction(action Action) {
@@ -319,13 +320,13 @@ func (cl *Client) RenderTable() {
 func (cl *Client) Connect(port string) {
 	log.Printf("Connecting to port: %s", port)
 	conn, err := net.Dial("tcp", port)
-	err = conn.(*net.TCPConn).SetKeepAlive(true)
+	//err = conn.(*net.TCPConn).SetKeepAlive(true)
+	//if err != nil {
+	//	log.Println(err)
+	//}
+	//err = conn.(*net.TCPConn).SetKeepAlivePeriod(10 * time.Second)
 	if err != nil {
-		log.Panic(err)
-	}
-	err = conn.(*net.TCPConn).SetKeepAlivePeriod(10 * time.Second)
-	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
 	cl.Conn = conn
@@ -339,6 +340,9 @@ func (cl *Client) HandleWrite() {
 		if b[len(b)-1] != '\n' { // EOF
 			b = append(b, '\n')
 		}
+		if cl.Conn == nil {
+			return
+		}
 		if _, err := cl.Conn.Write(b); err != nil {
 			log.Fatal(err)
 		}
@@ -347,6 +351,7 @@ func (cl *Client) HandleWrite() {
 }
 
 func (cl *Client) HandleRead() {
+	defer cl.Disconnect()
 	scanner := bufio.NewScanner(cl.Conn)
 	var messageTransport MessageTransport
 	for scanner.Scan() {
