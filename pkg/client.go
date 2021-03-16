@@ -23,7 +23,7 @@ type Client struct {
 	selecting     bool
 	lastSelection chess.Square
 	highlights    map[chess.Square]bool
-	Color         PlayerColor
+	Role          PlayerRole
 	optionBtn1    *tview.Button // Draw, Accept, Yes
 	optionBtn2    *tview.Button // Resign, Reject, No
 }
@@ -164,12 +164,10 @@ func (cl *Client) InitGUI() {
 			go cl.HandleAction(ActionExit)
 		case string(ActionNewGameReject):
 			go cl.HandleAction(ActionNewGameReject)
-
 		}
 	})
 
 	StatusTextView = tview.NewTextView().
-		SetText("This is where message is gonna be").
 		SetDynamicColors(true)
 
 	gameOptions := tview.NewGrid().
@@ -212,7 +210,7 @@ func (cl *Client) InitGUI() {
 }
 
 func (cl *Client) init_table() {
-	cl.RenderTable()
+	cl.renderBoard()
 	cl.Board.SetSelectable(true, true)
 	cl.Board.Select(0, 0).SetDoneFunc(func(key tcell.Key) {
 		if key == tcell.KeyEscape {
@@ -259,11 +257,11 @@ func (cl *Client) init_table() {
 			cl.selecting = true
 			cl.lastSelection = sq
 		}
-		cl.RenderTable() // Not need to if the we have a seperated routine to highlights
+		cl.renderBoard() // Not need to if the we have a seperated routine to highlights
 	})
 }
 
-func (cl *Client) RenderTable() {
+func (cl *Client) renderBoard() {
 	board := cl.Game.Position().Board()
 	var (
 		r, f  int
@@ -275,7 +273,7 @@ func (cl *Client) RenderTable() {
 		for f = 0; f <= numcols; f++ {
 			if f == 0 && r != numrows { // draw rank square
 				var rank chess.Rank
-				if cl.Color == White {
+				if cl.Role == White {
 					rank = chess.Rank(numrows - r - 1)
 				} else {
 					rank = chess.Rank(r)
@@ -320,11 +318,7 @@ func (cl *Client) RenderTable() {
 func (cl *Client) Connect(port string) {
 	log.Printf("Connecting to port: %s", port)
 	conn, err := net.Dial("tcp", port)
-	//err = conn.(*net.TCPConn).SetKeepAlive(true)
-	//if err != nil {
-	//	log.Println(err)
-	//}
-	//err = conn.(*net.TCPConn).SetKeepAlivePeriod(10 * time.Second)
+
 	if err != nil {
 		log.Println(err)
 		return
@@ -369,20 +363,19 @@ func (cl *Client) HandleRead() {
 			}
 			cl.optionBtn1.SetLabel(ActionDrawPrompt)
 			cl.optionBtn2.SetLabel(ActionResignPrompt)
-			cl.RenderTable()
+			cl.renderBoard()
 
 		case TypeMessageConnect:
 			var message MessageConnect
 			Decode(messageTransport.Data, &message)
 			cl.Game = GameFromFEN(message.Fen)
-			cl.Color = message.Color
+			cl.Role = message.Role
 			if message.IsTurn {
 				StatusTextView.SetText("Your turn!")
 			} else {
 				StatusTextView.SetText("Opponent turn!")
 			}
-
-			cl.RenderTable()
+			cl.renderBoard()
 
 		case TypeMessageGameChat:
 			var message MessageGameChat
@@ -426,7 +419,7 @@ func (cl *Client) HandleRead() {
 }
 func (cl *Client) posToSquare(row, col int) chess.Square {
 	// A1 is square 0
-	if cl.Color != Black { // decending order if is white
+	if cl.Role != Black { // decending order if is white
 		row = numrows - row - 1
 	}
 	col = col - 1 // 1 column for the rank

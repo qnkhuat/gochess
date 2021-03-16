@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"github.com/creack/pty"
 	"github.com/gliderlabs/ssh"
-	"github.com/notnil/chess"
 	"io"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"path"
-	"strconv"
 	"syscall"
 	"time"
 	"unsafe"
@@ -26,14 +25,7 @@ const (
 
 type Server struct {
 	*ssh.Server
-	Game    *chess.Game
-	Players []*Player
-	Viewers []*Player
-	Turn    PlayerColor
-	// TODO : find out a better way to generic this
-	In        chan MessageInterface
-	Out       chan MessageInterface
-	Terminate chan int
+	Matches map[string]*Match
 }
 
 func setWinsize(f *os.File, w, h int) {
@@ -102,173 +94,21 @@ func NewServer() *Server {
 		}
 	}()
 
-	In := make(chan MessageInterface, MessageQueueSize)
-	Out := make(chan MessageInterface, MessageQueueSize)
-	Terminate := make(chan int, MessageQueueSize)
-	game := NewGame()
+	matches := make(map[string]*Match)
 	server := &Server{
-		Server:    s,
-		Game:      game,
-		Turn:      White, // White move first
-		In:        In,
-		Out:       Out,
-		Terminate: Terminate,
+		Server:  s,
+		Matches: matches,
 	}
-	go server.HandleRead()
 
 	return server
 }
 
-func NewGame() *chess.Game {
-	return chess.NewGame(chess.UseNotation(chess.UCINotation{}))
-}
-
-func (s *Server) AddPlayer(p *Player) {
-	var color PlayerColor
-	num_players := len(s.Players)
-	if num_players == 0 {
-		color = White
-	} else if num_players == 1 {
-		color = Black
-	} else {
-		color = Viewer
+func (s *Server) AddConn(conn net.Conn, matchId string) {
+	if m, ok := s.Matches[matchId]; ok {
+		m.AddConn(conn)
+		return
 	}
-	p.Color = color
-	p.Id = len(s.Players)
-	s.Players = append(s.Players, p)
-
-	go p.HandleWrite()
-	go p.HandleRead(s.In)
-	p.Out <- MessageConnect{
-		Fen:    s.GameFEN(),
-		IsTurn: s.Turn == p.Color,
-		Color:  p.Color,
-	}
-
-	m := MessageGameChat{
-		Message: fmt.Sprintf("[grey]Player %s has joined[white]", p.Color),
-		Name:    "Server",
-	}
-	messageData := Encode(m)
-	s.In <- MessageTransport{MsgType: m.Type(), Data: messageData}
-
-	log.Printf("Added a Player: %s", p.Color)
-}
-
-func (s *Server) GameFEN() string {
-	return s.Game.Position().String()
-}
-
-func (s *Server) HandleRead() {
-	for inMessage := range s.In {
-		messageTransport := inMessage.(MessageTransport)
-		switch messageTransport.MsgType {
-		case TypeMessageMove:
-			var message MessageMove
-			Decode(messageTransport.Data, &message)
-			// Validate if the sender is the one who allowed to move
-			if s.Players[messageTransport.PlayerId].Color == s.Turn {
-				s.Game.MoveStr(message.Move)
-				// Switch turn
-				if s.Turn == White {
-					s.Turn = Black
-				} else {
-					s.Turn = White
-				}
-				m := MessageGame{Fen: s.GameFEN()}
-				for _, p := range s.Players { // Broadcast the game to all users
-					m.IsTurn = p.Color == s.Turn
-					p.Out <- m
-				}
-			}
-		case TypeMessageGameChat:
-			var message MessageGameChat
-			Decode(messageTransport.Data, &message)
-
-			var senderName string
-			if message.Name == "Server" { // Broadcast message from server
-				senderName = message.Name
-			} else if s.Players[messageTransport.PlayerId].Name != "" {
-				senderName = s.Players[messageTransport.PlayerId].Name
-			} else {
-				senderName = fmt.Sprintf("ID[%v]", strconv.Itoa(messageTransport.PlayerId))
-			}
-			message.Name = senderName
-			for _, p := range s.Players { // Broadcast the game to all users
-				p.Out <- message
-			}
-		case TypeMessageGameAction:
-			var message MessageGameAction
-			Decode(messageTransport.Data, &message)
-			switch message.Action {
-			case ActionResignYes:
-				for _, p := range s.Players {
-					if p.Id == messageTransport.PlayerId {
-						p.Out <- MessageGameAction{Action: ActionLose, Message: "by resignation"}
-					} else {
-						p.Out <- MessageGameAction{Action: ActionWin, Message: "by resigination"}
-					}
-					// TODO handle case for viewer
-				}
-
-			// Draw
-			case ActionDrawOffer:
-				for _, p := range s.Players {
-					if p.Id != messageTransport.PlayerId {
-						p.Out <- MessageGameAction{Action: ActionDrawOffer}
-						p.Out <- MessageGameStatus{Message: "Opponent offer draw!"}
-					}
-				}
-
-			case ActionDrawAccept:
-				for _, p := range s.Players {
-					p.Out <- MessageGameAction{Action: ActionDraw}
-				}
-
-			case ActionDrawReject:
-				for _, p := range s.Players {
-					if p.Id != messageTransport.PlayerId {
-						p.Out <- MessageGameStatus{Message: "Rejected draw offer"}
-					}
-				}
-
-			// New Game
-			case ActionNewGameOffer:
-				for _, p := range s.Players {
-					if p.Id != messageTransport.PlayerId {
-						p.Out <- MessageGameAction{Action: ActionNewGameOffer}
-						p.Out <- MessageGameStatus{Message: "New Game?"}
-					}
-				}
-
-			case ActionNewGameAccept:
-				s.Game = NewGame()
-				m := MessageGame{Fen: s.GameFEN()}
-				for _, p := range s.Players {
-					// TODO switch color
-					m.IsTurn = p.Color == s.Turn
-					p.Out <- m
-				}
-
-			case ActionNewGameReject:
-				for _, p := range s.Players {
-					if p.Id != messageTransport.PlayerId {
-						p.Out <- MessageGameStatus{Message: "Rejected New Game offer"}
-					}
-				}
-
-			// Exit
-			case ActionExit:
-				for _, p := range s.Players {
-					if p.Id != messageTransport.PlayerId {
-						p.Out <- MessageGameStatus{Message: "Opponent exited!"}
-					}
-					p.Disconnect()
-				}
-
-			default:
-				log.Printf("Received Unknown message")
-			}
-		}
-	}
+	s.Matches[matchId] = NewMatch()
+	s.Matches[matchId].AddConn(conn)
+	return
 }

@@ -19,6 +19,7 @@ const (
 	TypeMessageGameChat
 	TypeMessageGameAction
 	TypeMessageGameStatus
+	TypeMessageMatchRemovePlayer
 )
 
 func (m MessageType) String() string {
@@ -37,6 +38,8 @@ func (m MessageType) String() string {
 		return "TypeMessageGameAction"
 	case TypeMessageGameStatus:
 		return "TypeMessageGameStatus"
+	case TypeMessageMatchRemovePlayer:
+		return "TypeMessageMatchRemovePlayer"
 	default:
 		return "Unknown MessageType"
 	}
@@ -92,7 +95,7 @@ func (m MessageGame) Type() MessageType {
 
 // Initialize connection
 type MessageConnect struct {
-	Color  PlayerColor
+	Role   PlayerRole
 	Fen    string
 	IsTurn bool
 }
@@ -129,4 +132,13 @@ type MessageGameStatus struct {
 
 func (m MessageGameStatus) Type() MessageType {
 	return TypeMessageGameStatus
+}
+
+//
+type MessageMatchRemovePlayer struct {
+	PlayerId int
+}
+
+func (m MessageMatchRemovePlayer) Type() MessageType {
+	return TypeMessageMatchRemovePlayer
 }

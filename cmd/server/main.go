@@ -10,9 +10,8 @@ import (
 )
 
 var (
-	s     *pkg.Server
-	done  = make(chan bool)
-	count = 0
+	s    *pkg.Server
+	done = make(chan bool)
 )
 
 func main() {
@@ -29,8 +28,7 @@ func main() {
 	}
 	for {
 		conn, err := listener.Accept()
-		p := pkg.NewPlayer(conn)
-		s.AddPlayer(p)
+		s.AddConn(conn, "match")
 		if err != nil {
 			log.Println("Failed to connect %v", err)
 			continue

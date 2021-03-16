@@ -6,16 +6,15 @@ import (
 	"net"
 )
 
-type PlayerColor int
+type PlayerRole int
 
 const (
-	White PlayerColor = iota
+	White PlayerRole = iota
 	Black
 	Viewer
-	Unknown
 )
 
-func (pc PlayerColor) String() string {
+func (pc PlayerRole) String() string {
 	switch pc {
 	case White:
 		return "White"
@@ -29,11 +28,11 @@ func (pc PlayerColor) String() string {
 }
 
 type Player struct {
-	Conn  net.Conn
-	Color PlayerColor
-	Out   chan MessageInterface
-	Id    int
-	Name  string
+	Conn net.Conn
+	Role PlayerRole
+	Out  chan MessageInterface
+	Id   int
+	Name string
 }
 
 func NewPlayer(conn net.Conn) *Player {
@@ -55,6 +54,15 @@ func (p *Player) HandleRead(In chan MessageInterface) {
 		Decode(scanner.Bytes(), &messageTransport)
 		messageTransport.PlayerId = p.Id
 		In <- messageTransport // Forward the message to server
+	}
+
+	message := MessageMatchRemovePlayer{
+		PlayerId: p.Id,
+	}
+	In <- MessageTransport{
+		MsgType:  message.Type(),
+		Data:     Encode(message),
+		PlayerId: p.Id,
 	}
 	log.Println("Player Disconnected")
 }
