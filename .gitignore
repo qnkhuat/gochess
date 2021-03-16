@@ -5,6 +5,8 @@
 run.sh
 .DS_Store
 log
+repos
+cmd/server/server
 
 # Binaries for programs and plugins
 *.exe
