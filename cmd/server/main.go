@@ -22,7 +22,7 @@ func main() {
 	flag.Parse()
 	pkg.InitLog(*logPath, "SERVER: ")
 	log.Println("Server started")
-	s = pkg.NewServer(*binaryPath, *sshPort)
+	s = pkg.NewServer(*binaryPath, *sshPort, *logPath)
 
 	go s.CleanIdleMatches()
 

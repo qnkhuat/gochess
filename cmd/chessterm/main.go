@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"github.com/qnkhuat/chessterm/pkg"
 	"log"
 	"os"
@@ -20,7 +21,9 @@ var (
 )
 
 func main() {
-	pkg.InitLog("/Users/earther/fun/7_chessterm/log", "CLIENT: ")
+	logPath := flag.String("log", "~/log", "path to log file")
+	flag.Parse()
+	pkg.InitLog(*logPath, "CLIENT: ")
 
 	log.Println("New Client")
 	cl := pkg.NewClient()

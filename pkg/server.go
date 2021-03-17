@@ -27,6 +27,7 @@ const (
 
 var (
 	ChesstermBinary string
+	LogPath         string
 	SshPort         = ":2222"
 )
 
@@ -58,7 +59,7 @@ func sshHandle(s ssh.Session) {
 	cmdCtx, cancelCmd := context.WithCancel(s.Context())
 	defer cancelCmd()
 
-	cmd := exec.CommandContext(cmdCtx, "/Users/earther/fun/7_chessterm/cmd/chessterm/chessterm")
+	cmd := exec.CommandContext(cmdCtx, ChesstermBinary, "-log", LogPath)
 
 	cmd.Env = append(s.Environ(), fmt.Sprintf("TERM=%s", ptyReq.Term))
 
@@ -86,9 +87,10 @@ func sshHandle(s ssh.Session) {
 
 }
 
-func NewServer(binary string, sshPort string) *Server {
+func NewServer(binary string, sshPort string, logPath string) *Server {
 	SshPort = sshPort
 	ChesstermBinary = binary // path to chess term to open it
+	LogPath = logPath
 	s := &ssh.Server{
 		Addr:        SshPort,
 		IdleTimeout: ServerIdleTimeout,
