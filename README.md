@@ -17,6 +17,7 @@ The following libraries are used to build gochess:
 - [gliderlabs/ssh](https://github.com/gliderlabs/ssh) - SSH server
 # TODO
 - [x] Single player mode
+- [ ] Add mouse control
 - [ ] Add timer
 - [ ] Hint moves 
 
