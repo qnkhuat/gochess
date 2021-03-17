@@ -1,4 +1,4 @@
-# Chessterm.club
+# Chessterm
 Play chess with your friends on terminal!
 # Play
 `ssh gochess.club`
