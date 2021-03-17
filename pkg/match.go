@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"strings"
 )
 
 type Match struct {
@@ -97,12 +98,15 @@ func (m *Match) AddConn(conn net.Conn, name string) {
 			continue
 		}
 		pl.Out <- MessageGameChat{
-			Message: fmt.Sprintf("[gray]Player [green]%s[gray] has joined[white]", p.Name),
+			Message: fmt.Sprintf("[gray]Player [green]%s[gray] has joined[white]", strings.Title(p.Name)),
 		}
 	}
 
 	p.Out <- MessageGameChat{
-		Message: fmt.Sprintf("[gray]You have joined room [red]%s[gray] as [red]%s[gray] player with name [green]%s[white]", m.Name, p.Role, p.Name),
+		Message: fmt.Sprintf(`[gray]You have joined room [red]%s[gray] as [red]%s[gray] player with name [green]%s[white].
+To naviate use [green]arrows[white] or [green]H,J,K,L[green].
+[green]Enter[white] to select a piece to move. 
+[green]Enter[white] again to select destination[white]`, m.Name, p.Role, strings.Title(p.Name)),
 	}
 
 	log.Printf("Added a Player: %s", p.Role)

@@ -199,7 +199,8 @@ func (cl *Client) InitGUI() {
 
 	ChatTextView = tview.NewTextView().
 		SetScrollable(true).
-		SetDynamicColors(true)
+		SetDynamicColors(true).
+		SetWordWrap(true)
 
 	chatGrid := tview.NewGrid().
 		SetColumns(60).
@@ -483,7 +484,7 @@ func (cl *Client) HandleRead() {
 			var message MessageGameChat
 			Decode(messageTransport.Data, &message)
 			currentText := ChatTextView.GetText(false)
-			displayText := fmt.Sprintf("[green]%s[white]: %s", message.Name, message.Message)
+			displayText := fmt.Sprintf("[green]%s[white]: %s", strings.Title(message.Name), message.Message)
 			ChatTextView.
 				SetText(fmt.Sprintf("%s%s", currentText, displayText)).
 				ScrollToEnd()

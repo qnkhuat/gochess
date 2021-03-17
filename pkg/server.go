@@ -174,6 +174,7 @@ func (s *Server) HandleConn(sconn ServerConn) {
 				matchName = strings.ToLower(strings.TrimSpace(matchName))
 				if !s.IsMatchExisted(matchName) {
 					s.AddConn(sconn.Conn, matchName, sconn.Name)
+					return
 				} else {
 					matchName = s.NewMatchName()
 					out <- MessageGameCommand{Command: CommandMessage, Argument: fmt.Sprintf("Name existed! How about name it: %s?", matchName)}
@@ -191,7 +192,7 @@ func (s *Server) HandleConn(sconn ServerConn) {
 				}
 			case CommandCallme:
 				sconn.Name = message.Argument
-				out <- MessageGameCommand{Command: CommandMessage, Argument: fmt.Sprintf("[green]%s[white] it is!", sconn.Name)}
+				out <- MessageGameCommand{Command: CommandMessage, Argument: fmt.Sprintf("[green]%s[white] it is!", strings.Title(sconn.Name))}
 
 			case CommandLs:
 				listMatchString := "Matches list:\n"
@@ -217,7 +218,7 @@ func (s *Server) HandleConn(sconn ServerConn) {
 				log.Println("Unknown command")
 			}
 		default:
-			log.Println("Unknown message type")
+			log.Printf("Unknown message type: %v", messageTransport.MsgType)
 		}
 	}
 }

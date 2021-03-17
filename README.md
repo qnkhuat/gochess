@@ -1,4 +1,24 @@
-Im learning to play chess and Go. Also one of my obsessions is terminal. So I made this.
+# Chessterm.club
+Play chess with your friends on terminal!
+# Play
+`ssh gochess.club`
 
-I'm thinking about a terminal based multiplayer for chess
-Will add play with bot too but it's not high priority
+# Screenshot
+### Menu
+![](./statics/menu.png)
+### Game play
+![](./statics/gochess.png)
+
+# Libaries
+The following libraries are used to build gochess:
+- [notnil/chess](https://github.com/notnil/chess) - Chess engine
+- [rivo/tview](https://github.com/rivo/tview) - UI
+- [creack/pty](https://github.com/creack/pty) - Pseudo-terminal interfacej
+- [gliderlabs/ssh](https://github.com/gliderlabs/ssh) - SSH server
+# TODO
+- [ ] Single player mode
+- [ ] Add timer
+- [ ] Hint moves 
+
+# Disclaimer
+I'm building this project while learning Go. So any Comments on code quality + logic will be much appricated!
