@@ -21,9 +21,13 @@ import (
 
 const (
 	ServerIdleTimeout = 5 * time.Minute
-	SshPort           = ":2222"
 	ServerPort        = ":1998"
 	MessageQueueSize  = 20
+)
+
+var (
+	ChesstermBinary string
+	SshPort         = ":2222"
 )
 
 type Server struct {
@@ -82,7 +86,9 @@ func sshHandle(s ssh.Session) {
 
 }
 
-func NewServer() *Server {
+func NewServer(binary string, sshPort string) *Server {
+	SshPort = sshPort
+	ChesstermBinary = binary // path to chess term to open it
 	s := &ssh.Server{
 		Addr:        SshPort,
 		IdleTimeout: ServerIdleTimeout,

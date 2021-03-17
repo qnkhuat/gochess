@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"github.com/qnkhuat/chessterm/pkg"
 	"log"
 	"net"
@@ -15,9 +16,13 @@ var (
 )
 
 func main() {
-	pkg.InitLog("/Users/earther/fun/7_chessterm/log", "SERVER: ")
+	logPath := flag.String("log", "~/log", "path to log file")
+	binaryPath := flag.String("binary", "../chessterm/chessterm", "path to chessterm binary")
+	sshPort := flag.String("ssh", ":2222", "port to ssh")
+	flag.Parse()
+	pkg.InitLog(*logPath, "SERVER: ")
 	log.Println("Server started")
-	s = pkg.NewServer()
+	s = pkg.NewServer(*binaryPath, *sshPort)
 
 	go s.CleanIdleMatches()
 
