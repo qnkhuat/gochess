@@ -11,13 +11,14 @@ import (
 
 type Match struct {
 	//Players [2]*Player
-	Players map[int]*Player
-	Game    *chess.Game
-	Server  Server
-	Turn    PlayerRole
-	In      chan MessageInterface
-	Out     chan MessageInterface
-	Name    string
+	Players      map[int]*Player
+	Game         *chess.Game
+	Server       Server
+	Turn         PlayerRole
+	In           chan MessageInterface
+	Out          chan MessageInterface
+	Name         string
+	PracticeMode bool
 }
 
 func NewGame() *chess.Game {

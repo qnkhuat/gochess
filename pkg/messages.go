@@ -180,9 +180,10 @@ const (
 type Command string
 
 const (
-	CommandLs      Command = "ls"
-	CommandCreate          = "create"
-	CommandJoin            = "join"
-	CommandCallme          = "callme"
-	CommandMessage         = "message"
+	CommandLs       Command = "ls"
+	CommandCreate           = "create"
+	CommandJoin             = "join"
+	CommandCallme           = "callme"
+	CommandMessage          = "message"
+	CommandPractice         = "practice"
 )

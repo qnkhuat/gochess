@@ -23,13 +23,11 @@ func posToSquare(row, col int, flip bool) chess.Square {
 	return chess.Square((numrows-row-1)*8 + col - 1)
 }
 
-func squareToColor(sq chess.Square, highlights map[chess.Square]bool) tcell.Color {
-	if hl, ok := highlights[sq]; ok && hl {
-		return tcell.ColorRed
-	} else if (int(sq.File())+int(sq.Rank()))%2 == 0 {
-		return tcell.ColorBlue
+func squareToColor(sq chess.Square) tcell.Color {
+	if (int(sq.File())+int(sq.Rank()))%2 == 0 {
+		return tcell.GetColor("#ffffdf") // light
 	} else {
-		return tcell.ColorGreen
+		return tcell.GetColor("#dfdfdf") // Dark
 	}
 }
 
