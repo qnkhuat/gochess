@@ -223,7 +223,6 @@ func (cl *Client) InitGUI() {
 	menuInput := tview.NewInputField()
 	menuInput.SetLabel("[red]>[red] ").
 		SetDoneFunc(func(key tcell.Key) {
-			//cl.Out <- MessageGameChat{Message: messageInput.GetText(), Time: time.Now()}
 			command := strings.TrimSpace(strings.ToLower(menuInput.GetText()))
 			commands := strings.Split(command, " ")
 			menuInput.SetText("")

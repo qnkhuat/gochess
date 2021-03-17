@@ -186,6 +186,9 @@ func (s *Server) HandleConn(sconn ServerConn) {
 				} else {
 					level = 2
 				}
+				if sconn.Name == "" {
+					sconn.Name = randomdata.SillyName()
+				}
 
 				s.Matches[matchId] = NewMatch(matchId, true)
 				s.Matches[matchId].Engine = s.Engine
