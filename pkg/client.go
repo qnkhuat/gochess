@@ -268,7 +268,7 @@ func (cl *Client) InitGUI() {
 [green]Website[white] : ngockhuat.me
 [green]Twitter[white] : @qnkhuat
 [green]Email[white]   : qn.khuat@gmail.com
-Give gochess a start if you like it ! github.com/qnkhuat/gochess
+Give gochess a start if you like it! [green]github.com/qnkhuat/chessterm[white]
 				`
 				MenuTextView.
 					SetText(fmt.Sprintf("%s\n%s", currentText, aboutText)).
