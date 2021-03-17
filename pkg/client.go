@@ -46,11 +46,10 @@ In the lazyness of building an UI, chessterm comes with a list of commands to jo
 > [green]ls[white]            : List all the games
 > [green]join [red](code)[white]   : Join a game.  Live blank to join randomly 
 > [green]create [gray](code)[white] : Create a game with code name
+> [green]callme [red](name)[white] : To set your name
 > [green]help[white]          : To display this list
 > [green]about[white]         : About the developer of Chessterm
 > [green]exit[white]          : To exit`
-
-//> [green]callme [red](name)[white] : To set your name
 )
 
 func NewClient() *Client {
@@ -136,7 +135,8 @@ func (cl *Client) HandleAction(action Action) {
 		cl.optionBtn2.SetLabel(string(ActionExit))
 
 	case ActionExit:
-		cl.Out <- MessageGameAction{Action: ActionExit}
+		//cl.Out <- MessageGameAction{Action: ActionExit}
+		//cl.App.SetRoot(cl.MenuLayout, true)
 		cl.Disconnect()
 
 	default:
@@ -247,6 +247,18 @@ func (cl *Client) InitGUI() {
 				}
 				cl.Out <- MessageGameCommand{Command: CommandCreate, Argument: roomName}
 
+			case "callme":
+				var name string
+				if len(commands) > 1 {
+					name = strings.Join(commands[1:], "_")
+					cl.Out <- MessageGameCommand{Command: CommandCallme, Argument: name}
+				} else {
+					currentText := MenuTextView.GetText(false)
+					MenuTextView.
+						SetText(fmt.Sprintf("%s\n%s", currentText, "Please provide your name after [green]callme[white] command")).
+						ScrollToEnd()
+				}
+
 			case "exit":
 				cl.Disconnect()
 
@@ -304,9 +316,8 @@ func (cl *Client) initBoard() {
 			cl.Board.SetSelectable(true, true)
 		}
 	}).SetSelectedFunc(func(row, col int) {
-		// TODO handle when promoting
-		//sq := posToSquare(row, col)
 		sq := cl.posToSquare(row, col)
+
 		if cl.selecting {
 			if sq == cl.lastSelection { // chose the last move to deactivate
 				cl.selecting = false
@@ -345,6 +356,7 @@ func (cl *Client) initBoard() {
 			cl.selecting = true
 			cl.lastSelection = sq
 		}
+
 		cl.renderBoard() // Not need to if the we have a seperated routine to highlights
 	})
 }
@@ -470,7 +482,7 @@ func (cl *Client) HandleRead() {
 			var message MessageGameChat
 			Decode(messageTransport.Data, &message)
 			currentText := ChatTextView.GetText(false)
-			displayText := fmt.Sprintf("%s: %s", message.Name, message.Message)
+			displayText := fmt.Sprintf("[green]%s[white]: %s", message.Name, message.Message)
 			ChatTextView.
 				SetText(fmt.Sprintf("%s%s", currentText, displayText)).
 				ScrollToEnd()

@@ -32,6 +32,11 @@ type Server struct {
 	Clients []net.Conn
 }
 
+type ServerConn struct {
+	Conn net.Conn
+	Name string
+}
+
 func setWinsize(f *os.File, w, h int) {
 	syscall.Syscall(syscall.SYS_IOCTL, f.Fd(), uintptr(syscall.TIOCSWINSZ),
 		uintptr(unsafe.Pointer(&struct{ h, w, x, y uint16 }{uint16(h), uint16(w), 0, 0})))
@@ -109,17 +114,21 @@ func NewServer() *Server {
 	return server
 }
 
-func (s *Server) AddConn(conn net.Conn, matchId string) {
+func (s *Server) AddConn(conn net.Conn, matchId, name string) {
+	log.Printf("Input name :%s", name)
+	if name == "" {
+		name = randomdata.SillyName()
+	}
+	log.Printf("Set name :%s", name)
 	if m, ok := s.Matches[matchId]; ok {
-		m.AddConn(conn)
+		m.AddConn(conn, name)
 		return
 	}
-	s.Matches[matchId] = NewMatch()
-	s.Matches[matchId].AddConn(conn)
+	s.Matches[matchId] = NewMatch(matchId)
+	s.Matches[matchId].AddConn(conn, name)
 }
 
-func (s *Server) HandleConn(conn net.Conn) {
-
+func (s *Server) HandleConn(sconn ServerConn) {
 	out := make(chan MessageInterface)
 	go func() {
 		for {
@@ -130,14 +139,14 @@ func (s *Server) HandleConn(conn net.Conn) {
 				if b[len(b)-1] != '\n' { // EOF
 					b = append(b, '\n')
 				}
-				if _, err := conn.Write(b); err != nil {
+				if _, err := sconn.Conn.Write(b); err != nil {
 					log.Printf("Failed to write: %v Error: %v", message, err)
 				}
 			}
 		}
 	}()
 
-	scanner := bufio.NewScanner(conn)
+	scanner := bufio.NewScanner(sconn.Conn)
 	var messageTransport MessageTransport
 	for scanner.Scan() {
 		Decode(scanner.Bytes(), &messageTransport)
@@ -156,8 +165,7 @@ func (s *Server) HandleConn(conn net.Conn) {
 				}
 				matchName = strings.ToLower(strings.TrimSpace(matchName))
 				if !s.IsMatchExisted(matchName) {
-					s.AddConn(conn, matchName)
-					return
+					s.AddConn(sconn.Conn, matchName, sconn.Name)
 				} else {
 					matchName = s.NewMatchName()
 					out <- MessageGameCommand{Command: CommandMessage, Argument: fmt.Sprintf("Name existed! How about name it: %s?", matchName)}
@@ -168,14 +176,17 @@ func (s *Server) HandleConn(conn net.Conn) {
 				matchName = message.Argument
 
 				if s.IsMatchExisted(matchName) {
-					s.AddConn(conn, matchName)
+					s.AddConn(sconn.Conn, matchName, sconn.Name)
 					return
 				} else {
 					out <- MessageGameCommand{Command: CommandMessage, Argument: fmt.Sprintf("Match name %s not existed! type [green]create %s[white] to create one!", matchName, matchName)}
 				}
+			case CommandCallme:
+				sconn.Name = message.Argument
+				out <- MessageGameCommand{Command: CommandMessage, Argument: fmt.Sprintf("[green]%s[white] it is!", sconn.Name)}
 
 			case CommandLs:
-				listMatchString := ""
+				listMatchString := "Matches list:\n"
 				for matchName, match := range s.Matches {
 					player_count := 0
 					viewer_count := 0
@@ -186,8 +197,12 @@ func (s *Server) HandleConn(conn net.Conn) {
 							viewer_count++
 						}
 					}
-					listMatchString += fmt.Sprintf("Match: %s (#Player: %d/2, #Viewer: %d)\n", matchName, player_count, viewer_count)
+					listMatchString += fmt.Sprintf("Match: [red]%s[white] (#Player: %d/2, #Viewer: %d)\n", matchName, player_count, viewer_count)
 				}
+				if len(s.Matches) == 0 {
+					listMatchString = "No match found :( Let's create one 🌝"
+				}
+
 				out <- MessageGameCommand{Command: CommandMessage, Argument: listMatchString}
 
 			default:
@@ -210,6 +225,24 @@ func (s *Server) NewMatchName() string {
 		matchName := randomdata.Country(randomdata.FullCountry)
 		if !s.IsMatchExisted(matchName) {
 			return matchName
+		}
+	}
+}
+
+func (s *Server) CleanIdleMatches() {
+	tick := time.NewTicker(1 * time.Minute)
+	for {
+		connection_count := 0
+		select {
+		case <-tick.C:
+			for key, m := range s.Matches {
+				connection_count += len(m.Players)
+				if len(m.Players) == 0 {
+					delete(s.Matches, key)
+					log.Printf("Deleted match: %s", key)
+				}
+			}
+			log.Printf("Connection count: %d", connection_count)
 		}
 	}
 }

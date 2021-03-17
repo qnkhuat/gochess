@@ -35,12 +35,12 @@ type Player struct {
 	Name string
 }
 
-func NewPlayer(conn net.Conn) *Player {
-	Out := make(chan MessageInterface, ConnQueueSize)
-
+func NewPlayer(conn net.Conn, name string) *Player {
+	out := make(chan MessageInterface, ConnQueueSize)
 	p := &Player{
 		Conn: conn,
-		Out:  Out,
+		Out:  out,
+		Name: name,
 	}
 	return p
 }

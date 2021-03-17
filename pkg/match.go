@@ -16,19 +16,21 @@ type Match struct {
 	Turn    PlayerRole
 	In      chan MessageInterface
 	Out     chan MessageInterface
+	Name    string
 }
 
 func NewGame() *chess.Game {
 	return chess.NewGame(chess.UseNotation(chess.UCINotation{}))
 }
 
-func NewMatch() *Match {
+func NewMatch(name string) *Match {
 	game := NewGame()
 	in := make(chan MessageInterface, MessageQueueSize)
 	out := make(chan MessageInterface, MessageQueueSize)
 	players := make(map[int]*Player)
 
 	match := &Match{
+		Name:    name,
 		In:      in,
 		Out:     out,
 		Players: players,
@@ -65,8 +67,9 @@ func (m *Match) availableRole() PlayerRole {
 	}
 	return Viewer
 }
-func (m *Match) AddConn(conn net.Conn) {
-	p := NewPlayer(conn)
+
+func (m *Match) AddConn(conn net.Conn, name string) {
+	p := NewPlayer(conn, name)
 
 	role := m.availableRole()
 	p.Role = role
@@ -80,17 +83,27 @@ func (m *Match) AddConn(conn net.Conn) {
 	m.Players[p.Id] = p
 
 	go p.HandleWrite()
+
+	// Connect player to the game
 	p.Out <- MessageConnect{
 		Fen:    m.GameFEN(),
 		IsTurn: m.Turn == p.Role,
 		Role:   p.Role,
 	}
 
-	message := MessageGameChat{
-		Message: fmt.Sprintf("[grey]%s has joined[white]", p.Role),
-		Name:    "Server",
+	// Broadcast new player for all player in the game
+	for id, pl := range m.Players {
+		if id == p.Id {
+			continue
+		}
+		pl.Out <- MessageGameChat{
+			Message: fmt.Sprintf("[gray]Player [green]%s[gray] has joined[white]", p.Name),
+		}
 	}
-	m.In <- MessageTransport{MsgType: message.Type(), Data: Encode(message)}
+
+	p.Out <- MessageGameChat{
+		Message: fmt.Sprintf("[gray]You have joined room [red]%s[gray] as [red]%s[gray] player with name [green]%s[white]", m.Name, p.Role, p.Name),
+	}
 
 	log.Printf("Added a Player: %s", p.Role)
 }
@@ -139,9 +152,7 @@ func (m *Match) HandleRead() {
 			Decode(messageTransport.Data, &message)
 
 			var senderName string
-			if message.Name == "Server" { // Broadcast message from server
-				senderName = message.Name
-			} else if m.Players[messageTransport.PlayerId].Name != "" {
+			if m.Players[messageTransport.PlayerId].Name != "" {
 				senderName = m.Players[messageTransport.PlayerId].Name
 			} else {
 				senderName = fmt.Sprintf("ID[%v]", strconv.Itoa(messageTransport.PlayerId))

@@ -19,6 +19,8 @@ func main() {
 	log.Println("Server started")
 	s = pkg.NewServer()
 
+	go s.CleanIdleMatches()
+
 	// Create server to listen for data
 	listener, err := net.Listen("tcp", pkg.ServerPort)
 	log.Printf("Listening at port %s", pkg.ServerPort)
@@ -28,12 +30,12 @@ func main() {
 	}
 	for {
 		conn, err := listener.Accept()
-		//s.AddConn(conn, "match")
+		sconn := pkg.ServerConn{Conn: conn}
 		if err != nil {
 			log.Println("Failed to connect %v", err)
 			continue
 		}
-		go s.HandleConn(conn)
+		go s.HandleConn(sconn)
 	}
 
 	// Keep the server run
