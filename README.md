@@ -22,3 +22,4 @@ The following libraries are used to build gochess:
 
 # Disclaimer
 I'm building this project while learning Go. So any Comments on code quality + logic will be much appricated!
+Please add your comment in this [issue](https://github.com/qnkhuat/chessterm/issues/1) if you have any!
