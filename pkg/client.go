@@ -41,14 +41,14 @@ const (
 	numOfSquaresInBoard = 8 * 8
 	ConnQueueSize       = 10
 	commandlist         = `
-In the lazyness of building an UI, chessterm comes with a list of commands to join a game:
+In the lazyness of building an UI, gochess comes with a list of commands to join a game:
 
 > [green]ls[white]            : List all the games
 > [green]join [red](code)[white]   : Join a game.  Live blank to join randomly 
 > [green]create [gray](code)[white] : Create a game with code name
 > [green]callme [red](name)[white] : To set your name
 > [green]help[white]          : To display this list
-> [green]about[white]         : About the developer of Chessterm
+> [green]about[white]         : About the developer of Gochess
 > [green]exit[white]          : To exit`
 )
 
@@ -268,6 +268,7 @@ func (cl *Client) InitGUI() {
 [green]Website[white] : ngockhuat.me
 [green]Twitter[white] : @qnkhuat
 [green]Email[white]   : qn.khuat@gmail.com
+Give gochess a start if you like it ! github.com/qnkhuat/gochess
 				`
 				MenuTextView.
 					SetText(fmt.Sprintf("%s\n%s", currentText, aboutText)).
@@ -290,7 +291,7 @@ func (cl *Client) InitGUI() {
 		})
 
 	MenuTextView = tview.NewTextView().
-		SetText("WELCOME TO [green]CHESSTERM[white]" + commandlist).
+		SetText("WELCOME TO [green]GOCHESS.CLUB[white]" + commandlist).
 		SetScrollable(true).
 		SetDynamicColors(true).
 		SetWordWrap(true).
