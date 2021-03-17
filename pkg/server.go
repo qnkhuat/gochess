@@ -7,12 +7,14 @@ import (
 	"github.com/Pallinder/go-randomdata"
 	"github.com/creack/pty"
 	"github.com/gliderlabs/ssh"
+	"github.com/notnil/chess/uci"
 	"io"
 	"log"
 	"net"
 	"os"
 	"os/exec"
 	"path"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -35,6 +37,9 @@ type Server struct {
 	*ssh.Server
 	Matches map[string]*Match
 	Clients []net.Conn
+	Engine  *uci.Engine
+	In      chan MessageInterface
+	Out     chan MessageInterface
 }
 
 type ServerConn struct {
@@ -111,28 +116,37 @@ func NewServer(binary string, sshPort string, logPath string) *Server {
 		}
 	}()
 
+	// for single player mode
+	eng, err := uci.New("stockfish")
+	if err != nil {
+		panic(err)
+	}
+	in := make(chan MessageInterface, MessageQueueSize)
+	out := make(chan MessageInterface, MessageQueueSize)
+
 	matches := make(map[string]*Match)
 	clients := make([]net.Conn, 0)
 	server := &Server{
 		Server:  s,
 		Matches: matches,
 		Clients: clients,
+		Engine:  eng,
+		In:      in,
+		Out:     out,
 	}
 
 	return server
 }
 
 func (s *Server) AddConn(conn net.Conn, matchId, name string) {
-	log.Printf("Input name :%s", name)
 	if name == "" {
 		name = randomdata.SillyName()
 	}
-	log.Printf("Set name :%s", name)
 	if m, ok := s.Matches[matchId]; ok {
 		m.AddConn(conn, name)
 		return
 	}
-	s.Matches[matchId] = NewMatch(matchId)
+	s.Matches[matchId] = NewMatch(matchId, false)
 	s.Matches[matchId].AddConn(conn, name)
 }
 
@@ -164,6 +178,21 @@ func (s *Server) HandleConn(sconn ServerConn) {
 			Decode(messageTransport.Data, &message)
 			switch message.Command {
 
+			case CommandPractice:
+				var level int
+				matchId := s.NewMatchName()
+				if message.Argument != "" {
+					level, _ = strconv.Atoi(message.Argument)
+				} else {
+					level = 2
+				}
+
+				s.Matches[matchId] = NewMatch(matchId, true)
+				s.Matches[matchId].Engine = s.Engine
+				s.Matches[matchId].AddConn(sconn.Conn, sconn.Name)
+				s.Matches[matchId].PracticeLevel = level
+				return
+
 			case CommandCreate:
 				var matchName string
 				if message.Argument == "" {
@@ -184,7 +213,16 @@ func (s *Server) HandleConn(sconn ServerConn) {
 				var matchName string
 				matchName = message.Argument
 
-				if s.IsMatchExisted(matchName) {
+				if matchName == "" {
+					for matchId, match := range s.Matches {
+						if len(match.Players) < 2 {
+							s.AddConn(sconn.Conn, matchId, sconn.Name)
+							return
+						}
+					}
+					out <- MessageGameCommand{Command: CommandMessage, Argument: "No match available! Create one and invite your friend ^^!"}
+
+				} else if s.IsMatchExisted(matchName) {
 					s.AddConn(sconn.Conn, matchName, sconn.Name)
 					return
 				} else {

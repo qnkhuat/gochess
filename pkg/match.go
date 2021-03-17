@@ -3,42 +3,47 @@ package pkg
 import (
 	"fmt"
 	"github.com/notnil/chess"
+	"github.com/notnil/chess/uci"
 	"log"
 	"net"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Match struct {
 	//Players [2]*Player
-	Players      map[int]*Player
-	Game         *chess.Game
-	Server       Server
-	Turn         PlayerRole
-	In           chan MessageInterface
-	Out          chan MessageInterface
-	Name         string
-	PracticeMode bool
+	Players       map[int]*Player
+	Game          *chess.Game
+	Server        Server
+	Turn          PlayerRole
+	In            chan MessageInterface
+	Out           chan MessageInterface
+	Name          string
+	PracticeMode  bool
+	Engine        *uci.Engine
+	PracticeLevel int
 }
 
 func NewGame() *chess.Game {
 	return chess.NewGame(chess.UseNotation(chess.UCINotation{}))
 }
 
-func NewMatch(name string) *Match {
+func NewMatch(name string, practiceMode bool) *Match {
 	game := NewGame()
 	in := make(chan MessageInterface, MessageQueueSize)
 	out := make(chan MessageInterface, MessageQueueSize)
 	players := make(map[int]*Player)
 
 	match := &Match{
-		Name:    name,
-		In:      in,
-		Out:     out,
-		Players: players,
-		Game:    game,
-		Turn:    White, // White move first
-
+		Name:          name,
+		In:            in,
+		Out:           out,
+		Players:       players,
+		Game:          game,
+		Turn:          White, // White move first
+		PracticeMode:  practiceMode,
+		PracticeLevel: 2, // Default level for hardress in single player mode
 	}
 
 	go match.HandleRead()
@@ -130,11 +135,18 @@ func (m *Match) HandleRead() {
 			// Validate if the sender is the one who allowed to move
 			if m.Players[messageTransport.PlayerId].Role == m.Turn {
 				m.Game.MoveStr(message.Move)
-				// Switch turn
-				if m.Turn == White {
-					m.Turn = Black
+				if m.PracticeMode {
+					m.Turn = White // Player is always white
+					log.Println("Processing")
+					m.Game.MoveStr(m.NextMove())
+					log.Println("Processed")
 				} else {
-					m.Turn = White
+					// Switch turn
+					if m.Turn == White {
+						m.Turn = Black
+					} else {
+						m.Turn = White
+					}
 				}
 				message := MessageGame{Fen: m.GameFEN()}
 				for _, p := range m.Players { // Broadcast the game to all users
@@ -177,11 +189,14 @@ func (m *Match) HandleRead() {
 					} else {
 						p.Out <- MessageGameAction{Action: ActionWin, Message: "by resigination"}
 					}
-					// TODO handle case for viewer
 				}
 
-			// Draw
 			case ActionDrawOffer:
+				if m.PracticeMode {
+					for _, p := range m.Players {
+						p.Out <- MessageGameStatus{Message: "Rejected draw offer"}
+					}
+				}
 				for _, p := range m.Players {
 					if p.Id != messageTransport.PlayerId {
 						p.Out <- MessageGameAction{Action: ActionDrawOffer}
@@ -203,10 +218,21 @@ func (m *Match) HandleRead() {
 
 			// New Game
 			case ActionNewGameOffer:
-				for _, p := range m.Players {
-					if p.Id != messageTransport.PlayerId {
-						p.Out <- MessageGameAction{Action: ActionNewGameOffer}
-						p.Out <- MessageGameStatus{Message: "New Game?"}
+				if m.PracticeMode {
+					m.ReMatch()
+					message := MessageGame{Fen: m.GameFEN()}
+					for _, p := range m.Players {
+						// TODO switch color
+						message.IsTurn = p.Role == m.Turn
+						p.Out <- message
+					}
+
+				} else {
+					for _, p := range m.Players {
+						if p.Id != messageTransport.PlayerId {
+							p.Out <- MessageGameAction{Action: ActionNewGameOffer}
+							p.Out <- MessageGameStatus{Message: "New Game?"}
+						}
 					}
 				}
 
@@ -239,4 +265,14 @@ func (m *Match) HandleRead() {
 			}
 		}
 	}
+}
+
+func (m *Match) NextMove() string { // used for singple player mode
+	cmdPos := uci.CmdPosition{Position: m.Game.Position()}
+	cmdGo := uci.CmdGo{MoveTime: time.Second / time.Duration(200/m.PracticeLevel)} // the higher the level the longer the compute
+	if err := m.Engine.Run(cmdPos, cmdGo); err != nil {
+		panic(err)
+	}
+	move := m.Engine.SearchResults().BestMove
+	return move.String()
 }

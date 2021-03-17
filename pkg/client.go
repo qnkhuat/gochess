@@ -42,13 +42,14 @@ const (
 	commandlist         = `
 In the lazyness of building an UI, gochess comes with a list of commands to join a game:
 
-> [green]ls[white]            : List all the games
-> [green]join [red](code)[white]   : Join a game.  Live blank to join randomly 
-> [green]create [gray](code)[white] : Create a game with code name
-> [green]callme [red](name)[white] : To set your name
-> [green]help[white]          : To display this list
-> [green]about[white]         : About the developer of Gochess
-> [green]exit[white]          : To exit`
+> [green]practice[white] [gray](level)[white]: Single player mode. Level from 1-5 (Default:3) 
+> [green]ls[white]              : List all the games
+> [green]join [gray](code)[white]     : Join a game.  Live blank to join randomly 
+> [green]create [gray](code)[white]   : Create a game with code name
+> [green]callme [red](name)[white]   : To set your name
+> [green]help[white]            : To display this list
+> [green]about[white]           : About the developer of Gochess
+> [green]exit[white]            : To exit`
 )
 
 func NewClient() *Client {
@@ -227,6 +228,16 @@ func (cl *Client) InitGUI() {
 			commands := strings.Split(command, " ")
 			menuInput.SetText("")
 			switch commands[0] {
+			case "practice":
+				var level string
+				if len(commands) > 1 {
+					level = commands[1]
+				} else {
+					level = "2"
+				}
+
+				cl.Out <- MessageGameCommand{Command: CommandPractice, Argument: level}
+
 			case "ls":
 				cl.Out <- MessageGameCommand{Command: CommandLs}
 
@@ -297,7 +308,7 @@ Give gochess a star if you like it! [green]github.com/qnkhuat/chessterm[white]
 
 	menuLayout := tview.NewGrid().
 		SetRows(-1, 15, 1, 1, -1).
-		SetColumns(-1, 60, -1).
+		SetColumns(-1, 66, -1).
 		AddItem(MenuTextView, 1, 1, 1, 1, 0, 0, false).
 		AddItem(menuInput, 3, 1, 1, 1, 0, 0, true)
 

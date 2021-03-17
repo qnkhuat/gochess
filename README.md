@@ -16,7 +16,7 @@ The following libraries are used to build gochess:
 - [creack/pty](https://github.com/creack/pty) - Pseudo-terminal interfacej
 - [gliderlabs/ssh](https://github.com/gliderlabs/ssh) - SSH server
 # TODO
-- [ ] Single player mode
+- [x] Single player mode
 - [ ] Add timer
 - [ ] Hint moves 
 
