@@ -40,7 +40,7 @@ const (
 	numOfSquaresInBoard = 8 * 8
 	ConnQueueSize       = 10
 	commandlist         = `
-In the lazyness of building an UI, gochess comes with a list of commands to join a game:
+In the light of lazyness to build a good UI, GoChess comes with a list of commands to join a game:
 
 > [green]practice[white] [gray](level)[white]: Single player mode. Level from 1-5 (Default:3) 
 > [green]ls[white]              : List all the games
@@ -48,7 +48,7 @@ In the lazyness of building an UI, gochess comes with a list of commands to join
 > [green]create [gray](code)[white]   : Create a game with code name
 > [green]callme [red](name)[white]   : To set your name
 > [green]help[white]            : To display this list
-> [green]about[white]           : About the developer of Gochess
+> [green]about[white]           : About the developer of GoChess
 > [green]exit[white]            : To exit`
 )
 
@@ -277,7 +277,7 @@ func (cl *Client) InitGUI() {
 [green]Website[white] : ngockhuat.me
 [green]Twitter[white] : @qnkhuat
 [green]Email[white]   : qn.khuat@gmail.com
-Give gochess a star if you like it! [green]github.com/qnkhuat/chessterm[white]
+Give GoChess a star if you like it! [green]github.com/qnkhuat/chessterm[white]
 				`
 				MenuTextView.
 					SetText(fmt.Sprintf("%s\n%s", currentText, aboutText)).

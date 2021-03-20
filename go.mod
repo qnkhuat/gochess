@@ -1,15 +1,15 @@
-module github.com/qnkhuat/chessterm
+module github.com/qnkhuat/gochess
 
 go 1.15
 
 require (
-	github.com/Pallinder/go-randomdata v1.2.0 // indirect
+	github.com/Pallinder/go-randomdata v1.2.0
 	github.com/anmitsu/go-shlex v0.0.0-20200514113438-38f4b401e2be // indirect
 	github.com/creack/pty v1.1.11
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
 	github.com/fatih/color v1.10.0
 	github.com/gdamore/tcell v1.4.0 // indirect
-	github.com/gdamore/tcell/v2 v2.2.0 // indirect
+	github.com/gdamore/tcell/v2 v2.2.0
 	github.com/gliderlabs/ssh v0.3.2
 	github.com/kr/pty v1.1.8
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect

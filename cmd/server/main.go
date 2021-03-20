@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	"github.com/qnkhuat/chessterm/pkg"
+	"github.com/qnkhuat/gochess/pkg"
 	"log"
 	"net"
 	"os"
