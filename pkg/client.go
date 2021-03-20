@@ -13,19 +13,19 @@ import (
 )
 
 type Client struct {
-	Game          *chess.Game
-	App           *tview.Application
-	Board         *tview.Table
-	GameLayout    *tview.Grid
-	MenuLayout    *tview.Grid
-	Conn          net.Conn
-	In            chan MessageInterface
-	Out           chan MessageInterface
-	selecting     bool
-	lastSelection chess.Square
-	Role          PlayerRole
-	optionBtn1    *tview.Button // Draw, Accept, Yes
-	optionBtn2    *tview.Button // Resign, Reject, No
+	Game              *chess.Game
+	App               *tview.Application
+	Board             *tview.Table
+	GameLayout        *tview.Grid
+	MenuLayout        *tview.Grid
+	Conn              net.Conn
+	In                chan MessageInterface
+	Out               chan MessageInterface
+	selecting         bool
+	lastSelectedPiece chess.Square
+	Role              PlayerRole
+	optionBtn1        *tview.Button // Draw, Accept, Yes
+	optionBtn2        *tview.Button // Resign, Reject, No
 }
 
 var (
@@ -326,19 +326,24 @@ func (cl *Client) initBoard() {
 		if key == tcell.KeyEnter {
 			cl.Board.SetSelectable(true, true)
 		}
-	}).SetSelectedFunc(func(row, col int) {
+	}).SetSelectionChangedFunc(func(row, col int) {
 		sq := cl.posToSquare(row, col)
+		p := cl.Game.Position().Board().Piece(sq)
+		if (!cl.selecting && p == chess.NoPiece) ||
+			(cl.Role == White && p.Color() == chess.Black && !cl.selecting) ||
+			(cl.Role == Black && p.Color() == chess.White && !cl.selecting) {
+			return
+		}
 
 		if cl.selecting {
-			if sq == cl.lastSelection { // chose the last move to deactivate
+			if sq == cl.lastSelectedPiece { // chose the last move to deactivate
 				cl.selecting = false
 				cl.Board.GetCell(row, col).SetBackgroundColor(squareToColor(sq)) // Reset color
-				cl.lastSelection = 0
+				cl.lastSelectedPiece = 0
 			} else { // Chosing destination
-				move := fmt.Sprintf("%s%s", cl.lastSelection.String(), sq.String())
+				move := fmt.Sprintf("%s%s", cl.lastSelectedPiece.String(), sq.String())
 				validMoves := cl.Game.ValidMoves()
 				isValid := false
-				p := cl.Game.Position().Board().Piece(cl.lastSelection)
 				if p.Type() == chess.Pawn && ((move[1] == '7' && move[3] == '8') || move[1] == '2' && move[3] == '1') { // Auto promoting to Queen
 					move += "q"
 				}
@@ -348,28 +353,27 @@ func (cl *Client) initBoard() {
 					}
 				}
 				if !isValid {
-					last_row, last_col := cl.squareToPos(cl.lastSelection)
-					cl.Board.GetCell(last_row, last_col).SetBackgroundColor(squareToColor(cl.lastSelection)) // Reset color
+					last_row, last_col := cl.squareToPos(cl.lastSelectedPiece)
+					cl.Board.GetCell(last_row, last_col).SetBackgroundColor(squareToColor(cl.lastSelectedPiece)) // Reset color
 
 					cl.selecting = false
-					cl.lastSelection = 0
+					cl.lastSelectedPiece = 0
+					StatusTextView.SetText("Illegal move!")
 
 				} else { // success
-					last_row, last_col := cl.squareToPos(cl.lastSelection)
-					cl.Board.GetCell(last_row, last_col).SetBackgroundColor(squareToColor(cl.lastSelection)) // Reset color
+					last_row, last_col := cl.squareToPos(cl.lastSelectedPiece)
+					cl.Board.GetCell(last_row, last_col).SetBackgroundColor(squareToColor(cl.lastSelectedPiece)) // Reset color
 
 					cl.Out <- MessageMove{Move: move, Msg: "Hi"}
-					cl.lastSelection = 0
+					cl.lastSelectedPiece = 0
 					cl.selecting = false
-
 				}
 			}
 		} else {
 			cl.Board.GetCell(row, col).SetBackgroundColor(tcell.ColorRed)
 			cl.selecting = true
-			cl.lastSelection = sq
+			cl.lastSelectedPiece = sq
 		}
-
 	})
 }
 
@@ -417,7 +421,8 @@ func (cl *Client) renderBoard() {
 			color = squareToColor(sq)
 			cell := tview.NewTableCell(ps).
 				SetAlign(tview.AlignCenter).
-				SetBackgroundColor(color).SetTextColor(tcell.GetColor("#080808"))
+				SetBackgroundColor(color).
+				SetTextColor(tcell.GetColor("#080808"))
 			cl.Board.SetCell(r, f, cell)
 		}
 	}

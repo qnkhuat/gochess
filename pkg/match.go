@@ -5,6 +5,7 @@ import (
 	"github.com/notnil/chess"
 	"github.com/notnil/chess/uci"
 	"log"
+	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -110,9 +111,9 @@ func (m *Match) AddConn(conn net.Conn, name string) {
 
 	p.Out <- MessageGameChat{
 		Message: fmt.Sprintf(`[gray]You have joined room [red]%s[gray] as [red]%s[gray] player with name [green]%s[white].
-To naviate use [green]arrows[white] or [green]H,J,K,L[green].
-[green]Enter[white] to select a piece to move. 
-[green]Enter[white] again to select destination[white]`, m.Name, p.Role, strings.Title(p.Name)),
+To move piece: [green]click[white] on piece to select and [green]click[white] again on destination
+Also, you might want to zoom in to see the piece clearer! Have fun :)
+`, m.Name, p.Role, strings.Title(p.Name)),
 	}
 
 	log.Printf("Added a Player: %s", p.Role)
@@ -135,23 +136,27 @@ func (m *Match) HandleRead() {
 			// Validate if the sender is the one who allowed to move
 			if m.Players[messageTransport.PlayerId].Role == m.Turn {
 				m.Game.MoveStr(message.Move)
-				if m.PracticeMode {
-					m.Turn = White // Player is always white
-					log.Println("Processing")
-					m.Game.MoveStr(m.NextMove())
-					log.Println("Processed")
+				// Switch turn
+				if m.Turn == White {
+					m.Turn = Black
 				} else {
-					// Switch turn
-					if m.Turn == White {
-						m.Turn = Black
-					} else {
-						m.Turn = White
-					}
+					m.Turn = White
 				}
 				message := MessageGame{Fen: m.GameFEN()}
 				for _, p := range m.Players { // Broadcast the game to all users
 					message.IsTurn = p.Role == m.Turn
 					p.Out <- message
+				}
+
+				if m.PracticeMode {
+					time.Sleep(time.Second / 2) // Fake processing time
+					m.Turn = White              // Player is always white
+					m.Game.MoveStr(m.NextMove())
+					message := MessageGame{Fen: m.GameFEN()}
+					for _, p := range m.Players { // Broadcast the game to all users
+						message.IsTurn = p.Role == m.Turn
+						p.Out <- message
+					}
 				}
 
 				if m.Game.Outcome() != chess.NoOutcome {
@@ -269,7 +274,7 @@ func (m *Match) HandleRead() {
 
 func (m *Match) NextMove() string { // used for singple player mode
 	cmdPos := uci.CmdPosition{Position: m.Game.Position()}
-	cmdGo := uci.CmdGo{MoveTime: time.Second / time.Duration(200/m.PracticeLevel)} // the higher the level the longer the compute
+	cmdGo := uci.CmdGo{MoveTime: time.Second / time.Duration(200/math.Pow(float64(m.PracticeLevel), 2.))} // the higher the level the longer the compute
 	if err := m.Engine.Run(cmdPos, cmdGo); err != nil {
 		panic(err)
 	}

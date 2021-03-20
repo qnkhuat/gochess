@@ -216,9 +216,9 @@ func (s *Server) HandleConn(sconn ServerConn) {
 				var matchName string
 				matchName = message.Argument
 
-				if matchName == "" {
+				if matchName == "" { // join random
 					for matchId, match := range s.Matches {
-						if len(match.Players) < 2 {
+						if len(match.Players) < 2 && !match.PracticeMode {
 							s.AddConn(sconn.Conn, matchId, sconn.Name)
 							return
 						}
