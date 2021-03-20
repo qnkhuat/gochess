@@ -112,7 +112,7 @@ func (m *Match) AddConn(conn net.Conn, name string) {
 	p.Out <- MessageGameChat{
 		Message: fmt.Sprintf(`[gray]You have joined room [red]%s[gray] as [red]%s[gray] player with name [green]%s[white].
 To move piece: [green]click[white] on piece to select and [green]click[white] again on destination
-Also, you might want to zoom in to see the piece clearer! Have fun :)
+Also, you might want to zoom in to see the pieces clearer! Have fun :)
 `, m.Name, p.Role, strings.Title(p.Name)),
 	}
 
