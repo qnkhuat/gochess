@@ -214,6 +214,7 @@ func (cl *Client) InitGUI() {
 		AddItem(board, 1, 1, 1, 1, 0, 0, true).
 		AddItem(gameOptions, 1, 2, 1, 1, 0, 0, false).
 		AddItem(chatGrid, 2, 1, 1, 2, 0, 0, false)
+	gameLayout.Box.SetBackgroundColor(tcell.ColorBlack)
 
 	cl.Board = board
 	cl.GameLayout = gameLayout
@@ -310,6 +311,7 @@ Give gochess a star if you like it! [green]github.com/qnkhuat/chessterm[white]
 		SetColumns(-1, 66, -1).
 		AddItem(MenuTextView, 1, 1, 1, 1, 0, 0, false).
 		AddItem(menuInput, 3, 1, 1, 1, 0, 0, true)
+	menuLayout.Box.SetBackgroundColor(tcell.ColorBlack)
 
 	cl.MenuLayout = menuLayout
 }
