@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	ServerIdleTimeout = 5 * time.Minute
+	ServerIdleTimeout = 30 * time.Minute
 	ServerPort        = ":1998"
 	MessageQueueSize  = 20
 )

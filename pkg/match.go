@@ -60,6 +60,14 @@ func (m *Match) GameFEN() string {
 	return m.Game.Position().String()
 }
 
+func (m *Match) GameMoves() []string {
+	var moves []string
+	for _, move := range m.Game.Moves() {
+		moves = append(moves, move.String())
+	}
+	return moves
+}
+
 func (m *Match) isPlayer() bool {
 	if len(m.Players) <= 2 {
 		return true
@@ -142,21 +150,24 @@ func (m *Match) HandleRead() {
 				} else {
 					m.Turn = White
 				}
-				message := MessageGame{Fen: m.GameFEN()}
+				log.Println("Out moves:")
+				message := MessageGame{Fen: m.GameFEN(), Moves: m.GameMoves()}
 				for _, p := range m.Players { // Broadcast the game to all users
 					message.IsTurn = p.Role == m.Turn
 					p.Out <- message
 				}
 
+				// Practice mode will move immediately after client move
 				if m.PracticeMode {
 					time.Sleep(time.Second / 2) // Fake processing time
 					m.Turn = White              // Player is always white
 					m.Game.MoveStr(m.NextMove())
-					message := MessageGame{Fen: m.GameFEN()}
+					message := MessageGame{Fen: m.GameFEN(), Moves: m.GameMoves()}
 					for _, p := range m.Players { // Broadcast the game to all users
 						message.IsTurn = p.Role == m.Turn
 						p.Out <- message
 					}
+					log.Println(m.Game.Moves())
 				}
 
 				if m.Game.Outcome() != chess.NoOutcome {

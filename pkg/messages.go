@@ -90,6 +90,7 @@ func (m MessageMove) Type() MessageType {
 type MessageGame struct {
 	Fen    string
 	IsTurn bool
+	Moves  []string
 }
 
 func (m MessageGame) Type() MessageType {

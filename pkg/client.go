@@ -29,9 +29,10 @@ type Client struct {
 }
 
 var (
-	ChatTextView   *tview.TextView
-	StatusTextView *tview.TextView
-	MenuTextView   *tview.TextView
+	ChatTextView    *tview.TextView
+	StatusTextView  *tview.TextView
+	MenuTextView    *tview.TextView
+	HistoryTextView *tview.TextView
 )
 
 const (
@@ -206,14 +207,18 @@ func (cl *Client) InitGUI() {
 		AddItem(ChatTextView, 0, 0, 1, 1, 0, 0, false).
 		AddItem(messageInput, 2, 0, 1, 1, 0, 0, false)
 
+	HistoryTextView = tview.NewTextView().
+		SetDynamicColors(true)
+
 	board := tview.NewTable()
 
 	gameLayout := tview.NewGrid().
 		SetRows(-1, 10, 11, -1).
-		SetColumns(-1, 30, 30, -1).
+		SetColumns(-1, 30, 30, 14, -1).
 		AddItem(board, 1, 1, 1, 1, 0, 0, true).
 		AddItem(gameOptions, 1, 2, 1, 1, 0, 0, false).
-		AddItem(chatGrid, 2, 1, 1, 2, 0, 0, false)
+		AddItem(chatGrid, 2, 1, 1, 2, 0, 0, false).
+		AddItem(HistoryTextView, 1, 3, 2, 1, 0, 0, false)
 	gameLayout.Box.SetBackgroundColor(tcell.ColorBlack)
 
 	cl.Board = board
@@ -364,7 +369,7 @@ func (cl *Client) initBoard() {
 					last_row, last_col := cl.squareToPos(cl.lastSelectedPiece)
 					cl.Board.GetCell(last_row, last_col).SetBackgroundColor(squareToColor(cl.lastSelectedPiece)) // Reset color
 
-					cl.Out <- MessageMove{Move: move, Msg: "Hi"}
+					cl.Out <- MessageMove{Move: move}
 					cl.lastSelectedPiece = 0
 					cl.selecting = false
 				}
@@ -480,6 +485,17 @@ func (cl *Client) HandleRead() {
 			cl.optionBtn1.SetLabel(ActionDrawPrompt)
 			cl.optionBtn2.SetLabel(ActionResignPrompt)
 			cl.renderBoard()
+
+			// Render history
+			historyText := ""
+			for i, move := range message.Moves {
+				if i%2 == 0 {
+					historyText += fmt.Sprintf("[blue]%d. [white]%s - ", i/2+1, move)
+				} else {
+					historyText += fmt.Sprintf("%s\n", move)
+				}
+			}
+			HistoryTextView.SetText(historyText)
 
 		case TypeMessageConnect:
 			var message MessageConnect
