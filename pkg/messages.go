@@ -177,6 +177,7 @@ const (
 	ActionWin                  = "Win"
 	ActionLose                 = "Lose"
 	ActionDraw                 = "Draw"
+	ActionTimeOut              = "Time Out"
 )
 
 // COMMANDS

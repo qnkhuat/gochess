@@ -207,9 +207,19 @@ func (m *Match) HandleRead() {
 			case ActionResignYes:
 				for _, p := range m.Players {
 					if p.Id == messageTransport.PlayerId {
-						p.Out <- MessageGameAction{Action: ActionLose, Message: "by resignation"}
+						p.Out <- MessageGameAction{Action: ActionLose, Message: "by Resignation"}
 					} else {
-						p.Out <- MessageGameAction{Action: ActionWin, Message: "by resigination"}
+						p.Out <- MessageGameAction{Action: ActionWin, Message: "by Resigination"}
+					}
+				}
+
+			case ActionTimeOut:
+				log.Println("Got the time out")
+				for _, p := range m.Players {
+					if p.Id == messageTransport.PlayerId {
+						p.Out <- MessageGameAction{Action: ActionLose, Message: "by Time Out"}
+					} else {
+						p.Out <- MessageGameAction{Action: ActionWin, Message: "by Time Out"}
 					}
 				}
 

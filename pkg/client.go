@@ -498,6 +498,9 @@ func (cl *Client) UpdateTime() {
 		case <-tick.C:
 			OurTimeTextView.SetText(fmt.Sprintf("[yellow]%s", cl.OurClock))
 			OpponentTimeTextView.SetText(fmt.Sprintf("[yellow]%s", cl.OpponentClock))
+			if cl.OurClock.Remaining == time.Duration(0*time.Second) {
+				cl.Out <- MessageGameAction{Action: ActionTimeOut}
+			}
 			go cl.App.Draw()
 		}
 	}
@@ -549,10 +552,8 @@ func (cl *Client) HandleRead() {
 			cl.OpponentClock = NewClock(message.Duration, message.Increment)
 			if message.IsTurn {
 				StatusTextView.SetText("Your turn!")
-				cl.OurClock.Tick()
 			} else {
 				StatusTextView.SetText("Opponent turn!")
-				cl.OpponentClock.Tick()
 			}
 			cl.renderBoard()
 

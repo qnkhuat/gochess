@@ -30,7 +30,7 @@ func (cl *Clock) run() {
 	for {
 		select {
 		case <-tick.C:
-			if !cl.Paused {
+			if !cl.Paused && cl.Remaining > time.Duration(0*time.Second) {
 				cl.Remaining -= time.Second
 			}
 		}
