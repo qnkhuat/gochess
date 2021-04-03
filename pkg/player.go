@@ -33,6 +33,7 @@ type Player struct {
 	Out  chan MessageInterface
 	Id   int
 	Name string
+	// Time -- User time here
 }
 
 func NewPlayer(conn net.Conn, name string) *Player {

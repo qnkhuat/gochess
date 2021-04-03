@@ -18,6 +18,8 @@ type Client struct {
 	Board             *tview.Table
 	GameLayout        *tview.Grid
 	MenuLayout        *tview.Grid
+	OurClock          *Clock
+	OpponentClock     *Clock
 	Conn              net.Conn
 	In                chan MessageInterface
 	Out               chan MessageInterface
@@ -29,10 +31,12 @@ type Client struct {
 }
 
 var (
-	ChatTextView    *tview.TextView
-	StatusTextView  *tview.TextView
-	MenuTextView    *tview.TextView
-	HistoryTextView *tview.TextView
+	ChatTextView         *tview.TextView
+	StatusTextView       *tview.TextView
+	MenuTextView         *tview.TextView
+	HistoryTextView      *tview.TextView
+	OpponentTimeTextView *tview.TextView
+	OurTimeTextView      *tview.TextView
 )
 
 const (
@@ -181,13 +185,19 @@ func (cl *Client) InitGUI() {
 
 	StatusTextView = tview.NewTextView().
 		SetDynamicColors(true)
+	OpponentTimeTextView = tview.NewTextView().
+		SetDynamicColors(true)
+	OurTimeTextView = tview.NewTextView().
+		SetDynamicColors(true)
 
 	gameOptions := tview.NewGrid().
-		SetColumns(3, 11, 1, 11, 3).
-		SetRows(3, 1, 3, -1).
-		AddItem(StatusTextView, 0, 0, 1, 5, 0, 0, false).
+		SetColumns(4, 11, 1, 11, 3).
+		SetRows(1, 4, 3, 1, -1).
+		AddItem(StatusTextView, 1, 0, 1, 5, 0, 0, false).
 		AddItem(cl.optionBtn1, 2, 1, 1, 1, 0, 0, false).
-		AddItem(cl.optionBtn2, 2, 3, 1, 1, 0, 0, false)
+		AddItem(cl.optionBtn2, 2, 3, 1, 1, 0, 0, false).
+		AddItem(OpponentTimeTextView, 0, 0, 1, 5, 0, 0, false).
+		AddItem(OurTimeTextView, 3, 0, 1, 5, 0, 0, false)
 
 	messageInput := tview.NewInputField()
 	messageInput.SetLabel("[red]>[red] ").
@@ -213,7 +223,7 @@ func (cl *Client) InitGUI() {
 	board := tview.NewTable()
 
 	gameLayout := tview.NewGrid().
-		SetRows(-1, 10, 11, -1).
+		SetRows(-1, 11, 11, -1).
 		SetColumns(-1, 30, 30, 15, -1).
 		AddItem(board, 1, 1, 1, 1, 0, 0, true).
 		AddItem(gameOptions, 1, 2, 1, 1, 0, 0, false).
@@ -235,37 +245,53 @@ func (cl *Client) InitGUI() {
 			switch commands[0] {
 			case "practice":
 				var level string
+				//var args []string
 				if len(commands) > 1 {
 					level = commands[1]
 				} else {
 					level = "2"
 				}
 
-				cl.Out <- MessageGameCommand{Command: CommandPractice, Argument: level}
+				args := []string{level}
+				cl.Out <- MessageGameCommand{Command: CommandPractice, Argument: args}
 
 			case "ls":
 				cl.Out <- MessageGameCommand{Command: CommandLs}
 
 			case "join":
 				var roomName string
+				//var args []string
 				if len(commands) > 1 {
 					roomName = strings.Join(commands[1:], "_")
 				}
 
-				cl.Out <- MessageGameCommand{Command: CommandJoin, Argument: roomName}
+				args := []string{roomName}
+				cl.Out <- MessageGameCommand{Command: CommandJoin, Argument: args}
 
 			case "create":
-				var roomName string
+				var args []string
 				if len(commands) > 1 {
-					roomName = strings.Join(commands[1:], "_")
+					roomName := commands[1]
+					args = append(args, roomName)
 				}
-				cl.Out <- MessageGameCommand{Command: CommandCreate, Argument: roomName}
+				if len(commands) > 2 {
+					duration := commands[2]
+					args = append(args, duration)
+				}
+				if len(commands) > 3 {
+					duration := commands[3]
+					args = append(args, duration)
+				}
+
+				cl.Out <- MessageGameCommand{Command: CommandCreate, Argument: args}
 
 			case "callme":
 				var name string
+				//var args []string
 				if len(commands) > 1 {
 					name = strings.Join(commands[1:], "_")
-					cl.Out <- MessageGameCommand{Command: CommandCallme, Argument: name}
+					args := []string{name}
+					cl.Out <- MessageGameCommand{Command: CommandCallme, Argument: args}
 				} else {
 					currentText := MenuTextView.GetText(false)
 					MenuTextView.
@@ -465,6 +491,18 @@ func (cl *Client) HandleWrite() {
 	}
 }
 
+func (cl *Client) UpdateTime() {
+	tick := time.NewTicker(time.Second)
+	for {
+		select {
+		case <-tick.C:
+			OurTimeTextView.SetText(fmt.Sprintf("[yellow]%s", cl.OurClock))
+			OpponentTimeTextView.SetText(fmt.Sprintf("[yellow]%s", cl.OpponentClock))
+			go cl.App.Draw()
+		}
+	}
+}
+
 func (cl *Client) HandleRead() {
 	defer cl.Disconnect()
 	scanner := bufio.NewScanner(cl.Conn)
@@ -479,8 +517,12 @@ func (cl *Client) HandleRead() {
 			cl.Game = GameFromFEN(message.Fen)
 			if message.IsTurn {
 				StatusTextView.SetText("Your turn!")
+				cl.OurClock.Tick()
+				cl.OpponentClock.Pause()
 			} else {
 				StatusTextView.SetText("Opponent turn!")
+				cl.OpponentClock.Tick()
+				cl.OurClock.Pause()
 			}
 			cl.optionBtn1.SetLabel(ActionDrawPrompt)
 			cl.optionBtn2.SetLabel(ActionResignPrompt)
@@ -503,12 +545,18 @@ func (cl *Client) HandleRead() {
 			Decode(messageTransport.Data, &message)
 			cl.Game = GameFromFEN(message.Fen)
 			cl.Role = message.Role
+			cl.OurClock = NewClock(message.Duration, message.Increment)
+			cl.OpponentClock = NewClock(message.Duration, message.Increment)
 			if message.IsTurn {
 				StatusTextView.SetText("Your turn!")
+				cl.OurClock.Tick()
 			} else {
 				StatusTextView.SetText("Opponent turn!")
+				cl.OpponentClock.Tick()
 			}
 			cl.renderBoard()
+
+			go cl.UpdateTime()
 
 		case TypeMessageGameChat:
 			var message MessageGameChat
@@ -556,7 +604,7 @@ func (cl *Client) HandleRead() {
 			case CommandMessage:
 				currentText := MenuTextView.GetText(false)
 				MenuTextView.
-					SetText(fmt.Sprintf("%s\n%s", currentText, message.Argument)).
+					SetText(fmt.Sprintf("%s\n%s", currentText, message.Argument[0])).
 					ScrollToEnd()
 				go cl.App.Draw()
 

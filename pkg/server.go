@@ -138,7 +138,7 @@ func NewServer(binary string, sshPort string, logPath string) *Server {
 	return server
 }
 
-func (s *Server) AddConn(conn net.Conn, matchId, name string) {
+func (s *Server) AddConn(conn net.Conn, matchId, name string, duration, increment int) {
 	if name == "" {
 		name = randomdata.SillyName()
 	}
@@ -146,7 +146,7 @@ func (s *Server) AddConn(conn net.Conn, matchId, name string) {
 		m.AddConn(conn, name)
 		return
 	}
-	s.Matches[matchId] = NewMatch(matchId, false)
+	s.Matches[matchId] = NewMatch(matchId, false, duration, increment)
 	s.Matches[matchId].AddConn(conn, name)
 }
 
@@ -181,8 +181,8 @@ func (s *Server) HandleConn(sconn ServerConn) {
 			case CommandPractice:
 				var level int
 				matchId := s.NewMatchName()
-				if message.Argument != "" {
-					level, _ = strconv.Atoi(message.Argument)
+				if len(message.Argument) > 0 {
+					level, _ = strconv.Atoi(message.Argument[0])
 				} else {
 					level = 2
 				}
@@ -190,7 +190,7 @@ func (s *Server) HandleConn(sconn ServerConn) {
 					sconn.Name = randomdata.SillyName()
 				}
 
-				s.Matches[matchId] = NewMatch(matchId, true)
+				s.Matches[matchId] = NewMatch(matchId, true, 30, 0)
 				s.Matches[matchId].Engine = s.Engine
 				s.Matches[matchId].AddConn(sconn.Conn, sconn.Name)
 				s.Matches[matchId].PracticeLevel = level
@@ -198,42 +198,54 @@ func (s *Server) HandleConn(sconn ServerConn) {
 
 			case CommandCreate:
 				var matchName string
-				if message.Argument == "" {
-					matchName = s.NewMatchName()
+				duration := 10 // default 10 minutes
+				increment := 0 // default is 0 second
+				if len(message.Argument) > 0 {
+					matchName = message.Argument[0]
 				} else {
-					matchName = message.Argument
+					matchName = s.NewMatchName()
 				}
+
+				if len(message.Argument) > 1 {
+					duration, _ = strconv.Atoi(message.Argument[1])
+				}
+
+				if len(message.Argument) > 2 {
+					increment, _ = strconv.Atoi(message.Argument[2])
+				}
+
 				matchName = strings.ToLower(strings.TrimSpace(matchName))
 				if !s.IsMatchExisted(matchName) {
-					s.AddConn(sconn.Conn, matchName, sconn.Name)
+					s.AddConn(sconn.Conn, matchName, sconn.Name, duration, increment)
 					return
 				} else {
 					matchName = s.NewMatchName()
-					out <- MessageGameCommand{Command: CommandMessage, Argument: fmt.Sprintf("Name existed! How about name it: %s?", matchName)}
+					out <- MessageGameCommand{Command: CommandMessage, Argument: []string{fmt.Sprintf("Name existed! How about name it: %s?", matchName)}}
 				}
 
 			case CommandJoin:
 				var matchName string
-				matchName = message.Argument
+				matchName = message.Argument[0]
 
-				if matchName == "" { // join random
+				//if matchName == "" { // join random
+				if len(message.Argument) == 0 { // join random
 					for matchId, match := range s.Matches {
 						if len(match.Players) < 2 && !match.PracticeMode {
-							s.AddConn(sconn.Conn, matchId, sconn.Name)
+							s.AddConn(sconn.Conn, matchId, sconn.Name, -1, 0)
 							return
 						}
 					}
-					out <- MessageGameCommand{Command: CommandMessage, Argument: "No match available! Create one and invite your friend ^^!"}
+					out <- MessageGameCommand{Command: CommandMessage, Argument: []string{"No match available! Create one and invite your friend ^^!"}}
 
-				} else if s.IsMatchExisted(matchName) {
-					s.AddConn(sconn.Conn, matchName, sconn.Name)
+				} else if s.IsMatchExisted(message.Argument[0]) {
+					s.AddConn(sconn.Conn, message.Argument[0], sconn.Name, -1, 0)
 					return
 				} else {
-					out <- MessageGameCommand{Command: CommandMessage, Argument: fmt.Sprintf("Match name %s not existed! type [green]create %s[white] to create one!", matchName, matchName)}
+					out <- MessageGameCommand{Command: CommandMessage, Argument: []string{fmt.Sprintf("Match name %s not existed! type [green]create %s[white] to create one!", matchName, matchName)}}
 				}
 			case CommandCallme:
-				sconn.Name = message.Argument
-				out <- MessageGameCommand{Command: CommandMessage, Argument: fmt.Sprintf("[green]%s[white] it is!", strings.Title(sconn.Name))}
+				sconn.Name = message.Argument[0]
+				out <- MessageGameCommand{Command: CommandMessage, Argument: []string{fmt.Sprintf("[green]%s[white] it is!", strings.Title(sconn.Name))}}
 
 			case CommandLs:
 				listMatchString := "Matches list:\n"
@@ -253,7 +265,7 @@ func (s *Server) HandleConn(sconn ServerConn) {
 					listMatchString = "No match found :( Let's create one 🌝"
 				}
 
-				out <- MessageGameCommand{Command: CommandMessage, Argument: listMatchString}
+				out <- MessageGameCommand{Command: CommandMessage, Argument: []string{listMatchString}}
 
 			default:
 				log.Println("Unknown command")

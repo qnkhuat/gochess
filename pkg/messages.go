@@ -99,9 +99,11 @@ func (m MessageGame) Type() MessageType {
 
 // Initialize connection
 type MessageConnect struct {
-	Role   PlayerRole
-	Fen    string
-	IsTurn bool
+	Role      PlayerRole
+	Fen       string
+	IsTurn    bool
+	Duration  time.Duration
+	Increment time.Duration
 }
 
 func (m MessageConnect) Type() MessageType {
@@ -120,7 +122,7 @@ func (m MessageGameAction) Type() MessageType {
 
 type MessageGameCommand struct {
 	Command  Command
-	Argument string
+	Argument []string
 }
 
 func (m MessageGameCommand) Type() MessageType {

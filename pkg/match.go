@@ -24,13 +24,15 @@ type Match struct {
 	PracticeMode  bool
 	Engine        *uci.Engine
 	PracticeLevel int
+	Duration      time.Duration
+	Increment     time.Duration
 }
 
 func NewGame() *chess.Game {
 	return chess.NewGame(chess.UseNotation(chess.UCINotation{}))
 }
 
-func NewMatch(name string, practiceMode bool) *Match {
+func NewMatch(name string, practiceMode bool, duration, increment int) *Match {
 	game := NewGame()
 	in := make(chan MessageInterface, MessageQueueSize)
 	out := make(chan MessageInterface, MessageQueueSize)
@@ -45,6 +47,8 @@ func NewMatch(name string, practiceMode bool) *Match {
 		Turn:          White, // White move first
 		PracticeMode:  practiceMode,
 		PracticeLevel: 2, // Default level for hardress in single player mode
+		Duration:      time.Duration(duration) * time.Minute,
+		Increment:     time.Duration(increment) * time.Second,
 	}
 
 	go match.HandleRead()
@@ -89,7 +93,7 @@ func (m *Match) AddConn(conn net.Conn, name string) {
 
 	role := m.availableRole()
 	p.Role = role
-	// Id of white,black player is unique, Viewer instead can have as many as we want
+	// Id of white, black player is unique, Viewer instead can have as many as we want
 	if role == Black || role == White {
 		p.Id = int(role)
 		go p.HandleRead(m.In)
@@ -102,9 +106,11 @@ func (m *Match) AddConn(conn net.Conn, name string) {
 
 	// Connect player to the game
 	p.Out <- MessageConnect{
-		Fen:    m.GameFEN(),
-		IsTurn: m.Turn == p.Role,
-		Role:   p.Role,
+		Fen:       m.GameFEN(),
+		IsTurn:    m.Turn == p.Role,
+		Role:      p.Role,
+		Duration:  m.Duration,
+		Increment: m.Increment,
 	}
 
 	// Broadcast new player for all player in the game
@@ -238,7 +244,6 @@ func (m *Match) HandleRead() {
 					m.ReMatch()
 					message := MessageGame{Fen: m.GameFEN()}
 					for _, p := range m.Players {
-						// TODO switch color
 						message.IsTurn = p.Role == m.Turn
 						p.Out <- message
 					}
@@ -256,7 +261,7 @@ func (m *Match) HandleRead() {
 				m.ReMatch()
 				message := MessageGame{Fen: m.GameFEN()}
 				for _, p := range m.Players {
-					// TODO switch color
+					// TODO: switch color
 					message.IsTurn = p.Role == m.Turn
 					p.Out <- message
 				}
