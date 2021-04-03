@@ -214,7 +214,7 @@ func (cl *Client) InitGUI() {
 
 	gameLayout := tview.NewGrid().
 		SetRows(-1, 10, 11, -1).
-		SetColumns(-1, 30, 30, 14, -1).
+		SetColumns(-1, 30, 30, 15, -1).
 		AddItem(board, 1, 1, 1, 1, 0, 0, true).
 		AddItem(gameOptions, 1, 2, 1, 1, 0, 0, false).
 		AddItem(chatGrid, 2, 1, 1, 2, 0, 0, false).
