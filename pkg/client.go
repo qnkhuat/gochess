@@ -420,7 +420,8 @@ func (cl *Client) renderBoard() {
 		for f = 0; f <= numcols; f++ {
 			if f == 0 && r != numrows { // draw rank square
 				var rank chess.Rank
-				if cl.Role == White {
+				// flip if it's black
+				if cl.Role == White || cl.Role == Viewer {
 					rank = chess.Rank(numrows - r - 1)
 				} else {
 					rank = chess.Rank(r)
@@ -626,7 +627,7 @@ func (cl *Client) HandleRead() {
 }
 func (cl *Client) posToSquare(row, col int) chess.Square {
 	// A1 is square 0
-	if cl.Role == White { // decending order if is white
+	if cl.Role == White || cl.Role == Viewer { // decending order if is white
 		row = numrows - row - 1
 	}
 	col = col - 1 // 1 column for the rank
@@ -636,7 +637,7 @@ func (cl *Client) posToSquare(row, col int) chess.Square {
 func (cl *Client) squareToPos(sq chess.Square) (int, int) {
 	col := int(sq.File()) + 1
 	row := int(sq.Rank())
-	if cl.Role == White {
+	if cl.Role == White || cl.Role == Viewer {
 		row = numrows - row - 1
 	}
 	return row, col
