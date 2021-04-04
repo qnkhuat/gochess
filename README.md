@@ -25,7 +25,8 @@ The following libraries are used to build gochess:
 # TODO
 - [x] Single player mode
 - [x] Add mouse control
-- [ ] Add timer
+- [x] Add timer
+- [x] Moves History
 - [ ] Hint moves 
 
 # Disclaimer

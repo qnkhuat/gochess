@@ -2,7 +2,6 @@ package pkg
 
 import (
 	"fmt"
-	"log"
 	"time"
 )
 
@@ -35,7 +34,6 @@ func (cl *Clock) Run() {
 		case <-tick.C:
 			if !cl.Paused && cl.Remaining > time.Duration(0) {
 				cl.Remaining -= time.Second
-				log.Printf("Logging: %s", cl)
 			}
 		}
 	}

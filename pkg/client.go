@@ -50,7 +50,7 @@ In the light of lazyness to build a good UI, GoChess comes with a list of comman
 > [green]practice[white] [gray](level)[white]: Single player mode. Level from 1-5 (Default:3) 
 > [green]ls[white]              : List all the games
 > [green]join [gray](code)[white]     : Join a game.  Live blank to join randomly 
-> [green]create [gray](code)[white]   : Create a game with code name
+> [green]create [gray](code) (duration) (increment)[white] : Create a game with code name, game duration(minutes), increment(seconds)
 > [green]callme [red](name)[white]   : To set your name
 > [green]help[white]            : To display this list
 > [green]about[white]           : About the developer of GoChess
