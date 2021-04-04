@@ -26,6 +26,7 @@ type Match struct {
 	PracticeLevel int
 	Duration      time.Duration
 	Increment     time.Duration
+	Clocks        map[int]*Clock
 }
 
 func NewGame() *chess.Game {
@@ -37,6 +38,12 @@ func NewMatch(name string, practiceMode bool, duration, increment int) *Match {
 	in := make(chan MessageInterface, MessageQueueSize)
 	out := make(chan MessageInterface, MessageQueueSize)
 	players := make(map[int]*Player)
+	clocks := make(map[int]*Clock)
+
+	// Init clock for each player.
+	// This is indenpdent with player connection since they can disconnect
+	clocks[int(White)] = NewClock(time.Duration(duration)*time.Minute, time.Duration(increment)*time.Second)
+	clocks[int(Black)] = NewClock(time.Duration(duration)*time.Minute, time.Duration(increment)*time.Second)
 
 	match := &Match{
 		Name:          name,
@@ -47,8 +54,7 @@ func NewMatch(name string, practiceMode bool, duration, increment int) *Match {
 		Turn:          White, // White move first
 		PracticeMode:  practiceMode,
 		PracticeLevel: 2, // Default level for hardress in single player mode
-		Duration:      time.Duration(duration) * time.Minute,
-		Increment:     time.Duration(increment) * time.Second,
+		Clocks:        clocks,
 	}
 
 	go match.HandleRead()
@@ -106,11 +112,11 @@ func (m *Match) AddConn(conn net.Conn, name string) {
 
 	// Connect player to the game
 	p.Out <- MessageConnect{
-		Fen:       m.GameFEN(),
-		IsTurn:    m.Turn == p.Role,
-		Role:      p.Role,
-		Duration:  m.Duration,
-		Increment: m.Increment,
+		Fen:        m.GameFEN(),
+		IsTurn:     m.Turn == p.Role,
+		Role:       p.Role,
+		WhiteClock: m.Clocks[int(White)],
+		BlackClock: m.Clocks[int(Black)],
 	}
 
 	// Broadcast new player for all player in the game

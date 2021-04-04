@@ -2,10 +2,12 @@ package pkg
 
 import (
 	"fmt"
+	"log"
 	"time"
 )
 
 type Clock struct {
+	Duration  time.Duration
 	Remaining time.Duration
 	Increment time.Duration
 	Paused    bool
@@ -17,21 +19,23 @@ func (cl *Clock) String() string {
 
 func NewClock(duration, increment time.Duration) *Clock {
 	cl := &Clock{
+		Duration:  duration,
 		Remaining: duration,
 		Increment: increment,
 		Paused:    true,
 	}
-	go cl.run()
+	go cl.Run()
 	return cl
 }
 
-func (cl *Clock) run() {
+func (cl *Clock) Run() {
 	tick := time.NewTicker(time.Second)
 	for {
 		select {
 		case <-tick.C:
-			if !cl.Paused && cl.Remaining > time.Duration(0*time.Second) {
+			if !cl.Paused {
 				cl.Remaining -= time.Second
+				log.Printf("Logging: %s", cl)
 			}
 		}
 	}
@@ -44,4 +48,8 @@ func (cl *Clock) Tick() {
 
 func (cl *Clock) Pause() {
 	cl.Paused = true
+}
+
+func (cl *Clock) Reset() {
+	cl.Remaining = cl.Duration
 }

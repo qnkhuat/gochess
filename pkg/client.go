@@ -498,9 +498,6 @@ func (cl *Client) UpdateTime() {
 		case <-tick.C:
 			OurTimeTextView.SetText(fmt.Sprintf("[yellow]%s", cl.OurClock))
 			OpponentTimeTextView.SetText(fmt.Sprintf("[yellow]%s", cl.OpponentClock))
-			if cl.OurClock.Remaining == time.Duration(0*time.Second) {
-				cl.Out <- MessageGameAction{Action: ActionTimeOut}
-			}
 			go cl.App.Draw()
 		}
 	}
@@ -548,8 +545,17 @@ func (cl *Client) HandleRead() {
 			Decode(messageTransport.Data, &message)
 			cl.Game = GameFromFEN(message.Fen)
 			cl.Role = message.Role
-			cl.OurClock = NewClock(message.Duration, message.Increment)
-			cl.OpponentClock = NewClock(message.Duration, message.Increment)
+
+			if cl.Role == Black {
+				cl.OurClock = message.BlackClock
+				cl.OpponentClock = message.WhiteClock
+			} else {
+				cl.OurClock = message.WhiteClock
+				cl.OpponentClock = message.BlackClock
+			}
+			go cl.OurClock.Run()
+			go cl.OpponentClock.Run()
+
 			if message.IsTurn {
 				StatusTextView.SetText("Your turn!")
 			} else {

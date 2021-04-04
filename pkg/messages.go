@@ -99,11 +99,11 @@ func (m MessageGame) Type() MessageType {
 
 // Initialize connection
 type MessageConnect struct {
-	Role      PlayerRole
-	Fen       string
-	IsTurn    bool
-	Duration  time.Duration
-	Increment time.Duration
+	Role       PlayerRole
+	Fen        string
+	IsTurn     bool
+	BlackClock *Clock
+	WhiteClock *Clock
 }
 
 func (m MessageConnect) Type() MessageType {
