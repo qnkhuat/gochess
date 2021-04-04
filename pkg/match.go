@@ -58,12 +58,49 @@ func NewMatch(name string, practiceMode bool, duration, increment int) *Match {
 	}
 
 	go match.HandleRead()
+	go match.WatchTime()
 	return match
+}
+
+func (m *Match) WatchTime() {
+	tick := time.NewTicker(time.Second)
+	for {
+		select {
+		case <-tick.C:
+			var winner PlayerRole
+
+			if m.Clocks[int(White)].Remaining == time.Duration(0) {
+				winner = Black
+			} else if m.Clocks[int(Black)].Remaining == time.Duration(0) {
+				winner = White
+			} else {
+				continue
+			}
+
+			// Have a winner
+			for _, p := range m.Players {
+				if p.Role != Viewer {
+					if p.Role == winner {
+						p.Out <- MessageGameAction{Action: ActionWin, Message: "Time Out"}
+					} else {
+						p.Out <- MessageGameAction{Action: ActionLose, Message: "Time Out"}
+					}
+				} else {
+					p.Out <- MessageGameAction{Action: ActionWin, Message: fmt.Sprintf("Time Out. Winner: %s", winner)}
+				}
+			}
+			return
+		}
+	}
 }
 
 func (m *Match) ReMatch() {
 	m.Game = NewGame()
 	m.Turn = White
+
+	m.Clocks[int(White)].Reset()
+	m.Clocks[int(Black)].Reset()
+	go m.WatchTime()
 }
 
 func (m *Match) GameFEN() string {
@@ -159,10 +196,13 @@ func (m *Match) HandleRead() {
 				// Switch turn
 				if m.Turn == White {
 					m.Turn = Black
+					m.Clocks[int(Black)].Tick()
+					m.Clocks[int(White)].Pause()
 				} else {
 					m.Turn = White
+					m.Clocks[int(White)].Tick()
+					m.Clocks[int(Black)].Pause()
 				}
-				log.Println("Out moves:")
 				message := MessageGame{Fen: m.GameFEN(), Moves: m.GameMoves()}
 				for _, p := range m.Players { // Broadcast the game to all users
 					message.IsTurn = p.Role == m.Turn
@@ -220,7 +260,6 @@ func (m *Match) HandleRead() {
 				}
 
 			case ActionTimeOut:
-				log.Println("Got the time out")
 				for _, p := range m.Players {
 					if p.Id == messageTransport.PlayerId {
 						p.Out <- MessageGameAction{Action: ActionLose, Message: "by Time Out"}

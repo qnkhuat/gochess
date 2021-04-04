@@ -33,7 +33,7 @@ func (cl *Clock) Run() {
 	for {
 		select {
 		case <-tick.C:
-			if !cl.Paused {
+			if !cl.Paused && cl.Remaining > time.Duration(0) {
 				cl.Remaining -= time.Second
 				log.Printf("Logging: %s", cl)
 			}
@@ -52,4 +52,5 @@ func (cl *Clock) Pause() {
 
 func (cl *Clock) Reset() {
 	cl.Remaining = cl.Duration
+	cl.Pause()
 }

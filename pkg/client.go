@@ -595,6 +595,8 @@ func (cl *Client) HandleRead() {
 				StatusTextView.SetText(status)
 				cl.HandleAction(message.Action)
 				go cl.App.Draw()
+				cl.OurClock.Reset()
+				cl.OpponentClock.Reset()
 
 			case ActionDrawOffer, ActionNewGameOffer: // Opponent send draw offer
 				cl.HandleAction(message.Action)
