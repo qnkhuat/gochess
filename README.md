@@ -7,7 +7,7 @@ To play in singple player mode ( against stockfish bot ), just type `practice`
 
 To play with your friend:
 - Create a room with `create [roomname]`
-- Tell your friend to join with command `create [roomname]`
+- Tell your friend to join with command `join [roomname]`
 
 
 # Screenshots
